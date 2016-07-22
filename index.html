@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <script src="main.js"></script>
+    <script>
+      var VM = new jibniz.Console
+      VM.program = jibniz.compile('^x7r+')
+      // d*xd*+
+      document.body.appendChild(VM.domElement)
+
+      VM.run()
+
+      var pre = document.createElement('pre')
+      var output = document.createElement('code')
+      output.appendChild(document.createTextNode(VM.program))
+      pre.appendChild(output)
+      document.body.appendChild(pre)
+    </script>
+  </body>
+</html>
