@@ -81,7 +81,8 @@ J.Console = function() {
   }
   this.mod = _ => {
     var b = stack.pop()
-    stack.push(b == 0 ? 0 : stack.pop() % b)
+    var a = stack.pop()
+    stack.push(b == 0 ? 0 : a % b)
   }
   this.sqrt = _ => {
     var a = stack.pop()
@@ -215,7 +216,7 @@ window.isHex = isHexaDecimal
 function next(state) {
   var c = state.src[state.pos++]
 
-  if (c == ' ' || c == ',' || c == 'd;' || c == '\n')
+  if (c == ' ' || c == ',' || c == ';' || c == '\n')
     return
 
   if (codes[c]) {
