@@ -6,7 +6,7 @@ var J = window.jibniz = {}
 
 // VVUU.YYYY
 var YUVtoHEX = c => {
-  var l = (c >> 8) & 0xff
+  var l = (c >>> 8) & 0xff
   return 0xff000000 | l << 16 | l << 8 | l
 }
 
@@ -14,7 +14,6 @@ J.Console = function() {
   var cvs = this.domElement = document.createElement('canvas')
   var ctx = cvs.getContext('2d')
 
-  // hahaha, lightweight… right
   var MEM     = new Int32Array(1048576)
   var USRDATA = new Int32Array(MEM.buffer, 0, 786432)
   var ARSTACK = new Int32Array(MEM.buffer, 102400, 16384)
@@ -22,12 +21,8 @@ J.Console = function() {
   var ASTACK  = new Int32Array(MEM.buffer, 106496, 65536)
   var VSTACK  = new Int32Array(MEM.buffer, 114688, 131072)
 
-  var pointers = {
-    vs: 0,
-    as: 0,
-    vr: 0,
-    ar: 0
-  }
+  var audio = { S: ASTACK, sn: 0, sm: 65535, R: ARSTACK, rn: 0, rm: 16383 }
+  var video = { S: VSTACK, sn: 0, sm: 131071, R: VRSTACK, rn: 0, rm: 16383 }
 
   cvs.width = cvs.height = 256
   var imageData = ctx.createImageData(256, 256)
@@ -42,15 +37,15 @@ J.Console = function() {
   }
 
   this.step = function() {
-    // raf(this.step)
+    raf(this.step)
     for (y = 0; y < 256; y++) {
       for(x = 0; x < 256; x++) {
         this.whereami()
-        this.program(VSTACK, pointers)
+        this.program(video)
       }
     }
 
-    var offset = pointers.vs < 65536 ? 65536 : 0
+    var offset = video.sn < 65536 ? 65536 : 0
     for (var i = 65536; i--;)
       buf32[i] = YUVtoHEX(VSTACK[offset + i])
 
@@ -60,8 +55,8 @@ J.Console = function() {
 
   // tmp: to be deleted
   function push(x) {
-    VSTACK[pointers.vs] = x
-    pointers.vs = pointers.vs + 1 & 131071
+    VSTACK[video.sn] = x
+    video.sn = video.sn + 1 & 131071
   }
 
   this.right = _ => {
@@ -91,97 +86,93 @@ J.Console = function() {
     push(coord(y))
     push(coord(x))
   }
-
-  this.pick = _ => {
-    var i = stack.pop()
-    if (stack.next > i)
-      stack.push(stack.data[i])
-    else
-      stack.push(stack.data[stack.next + stack.size - i])
-  }
-  this.bury = _ => {
-    var i = stack.pop()
-    var val = stack.pop()
-    if (stack.next > i)
-      stack.data[i] = val
-    else
-      stack.data[stack.next + stack.size - i] = val
-  }
-  this.load = _ => {}
-  this.store = _ => {}
-  this.index = _ => {}
-  this.outdex = _ => {}
 }
 
-var vsincr = 'p.vs=p.vs+1&131071;'
-var vsdecr = 'p.vs=p.vs+131071&131071;'
+var vsincr = 'o.sn=o.sn+1&sm;'
+var vsdecr = 'o.sn=o.sn+sm&sm;'
+var vrincr = 'o.rn=o.rn+1&rm;'
+var vrdecr = 'o.rn=o.rn+rm&rm;'
 
 var codes = {
   '+': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]+VS[p.vs];',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]+S[o.sn];',
   '-': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]-VS[p.vs];',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]-S[o.sn];',
   '*': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]*VS[p.vs]>>16;',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]*S[o.sn]>>16;',
   '/': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[p.vs]==0?0:(VS[a]<<16)/VS[p.vs];',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[o.sn]==0?0:(S[a]<<16)/S[o.sn];',
   '%': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[p.vs]==0?0:VS[a]%VS[p.vs];',
-  'q': 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]>0?Math.sqrt(VS[a]/65536)*65536:0;',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[o.sn]==0?0:S[a]%S[o.sn];',
+  'q': 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536:0;',
   '&': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]&VS[p.vs];',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]&S[o.sn];',
   '|': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]|VS[p.vs];',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]|S[o.sn];',
   '^': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]^VS[p.vs];',
-  'r': 'c.right();',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]^S[o.sn];',
+  // rotate shift
+  // maybe left shift should also rotate?
+  'r': vsdecr
+     + 'a=o.sn+sm&sm;'
+     + 'b=S[o.sn]>>16;'
+     + 'c=S[a];'
+     + 'S[a]=(c>>b)|(c<<(16-c));',
   'l': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]<<(VS[p.vs]>>16);',
-  '~': 'a=p.vs+131071&131071;'
-     + 'VS[a]=~VS[a];',
-  's': 'a=p.vs+131071&131071;'
-     + 'VS[a]=Math.sin(VS[a]/65536)*65536;',
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]<<(S[o.sn]>>16);',
+  '~': 'a=o.sn+sm&sm;'
+     + 'S[a]=~S[a];',
+  's': 'a=o.sn+sm&sm;'
+     + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
   'a': vsdecr
-     + 'a=p.vs+131071&131071;'
-     + 'VS[a]=Math.atan(VS[a]/65536,VS[p.vs]/65536)/(2*Math.PI)*65536;',
-  '<': 'a=p.vs+131071&131071;'
-     + 'if(VS[a]>0)VS[a]=0;',
-  '>': 'a=p.vs+131071&131071;'
-     + 'if(VS[a]<0)VS[a]=0;',
-  '=': 'a=p.vs+131071&131071;'
-     + 'VS[a]=VS[a]==0;',
-  'd': 'VS[p.vs]=VS[p.vs+131071&131071];'
+     + 'a=o.sn+sm&sm;'
+     + 'S[a]=Math.atan(S[a]/65536,S[o.sn]/65536)/Math.PI*32768;',
+  '<': 'a=o.sn+sm&sm;'
+     + 'if(S[a]>0)S[a]=0;',
+  '>': 'a=o.sn+sm&sm;'
+     + 'if(S[a]<0)S[a]=0;',
+  '=': 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a]==0;',
+  'd': 'S[o.sn]=S[o.sn+sm&sm];'
      + vsincr,
   'p': vsdecr,
-  'x': 'a=p.vs+131071&131071;'
-     + 'b=a+131071&131071;'
-     + 'c=VS[a];VS[a]=VS[b];VS[b]=c;',
-  'v': 'a=p.vs+131071&131071;'
-     + 'b=a+131071&131071;'
-     + 'c=b+131071&131071;'
-     + 'd=VS[a];VS[a]=VS[c];VS[c]=VS[b];VS[b]=d;',
+  'x': 'a=o.sn+sm&sm;'
+     + 'b=a+sm&sm;'
+     + 'c=S[a];S[a]=S[b];S[b]=c;',
+  'v': 'a=o.sn+sm&sm;'
+     + 'b=a+sm&sm;'
+     + 'c=b+sm&sm;'
+     + 'd=S[a];S[a]=S[c];S[c]=S[b];S[b]=d;',
 
-  // todo:
-  ')': 'c.pick();',
-  '(': 'c.bury();',
+  // todo: test this thoroughly
+  ')': 'a=o.sn+sm&sm;'
+     + 'S[a]=S[a+sm+1-(S[a]>>16)&sm]',
+  '(': vsdecr
+     + 'a=S[o.sn]>>16;'
+     + vsdecr
+     + 'S[o.sn+sm-a&sm]=S[o.sn]',
   'w': 'c.whereami();',
   'T': 'break;',
-  '@': 'c.load();',
+  '@': 'a=o.sn+sm&sm;'
+     + 'b=S[a];'
+     + 'S[a]=MM[(b>>>16)|((b&0xf000)<<4)]',
   '!': 'c.store();',
   'i': 'c.index();',
   'j': 'c.outdex();',
   'R': 'c.retaddr();',
   'P': 'c.pushtors();',
+  'J': vsdecr
+     + 'i=S[o.sn];continue;'
 }
 
 function eatUntil(state, check) {
@@ -211,10 +202,10 @@ function next(state) {
     return
   }
 
-  state.body += '\ncase ' + (state.inst++) + ':\n'
+  state.body += '\ncase ' + (state.inst++) + ':'
 
   if (codes[c]) {
-    state.body += codes[c] + '\n'
+    state.body += codes[c]
   }
 
   // todo: take fractional part into account
@@ -222,8 +213,9 @@ function next(state) {
     var integer = parseInt(c, 16) << 16
     while(state.pos < state.len && isHexaDecimal(state.src[state.pos]))
       integer = integer << 4 | parseInt(state.src[state.pos++], 16)
-    state.body += 'c.loadimm('+integer+');'
+    state.body += 'S[o.sn]='+integer+';' + vsincr;
   }
+
   else {
     // switch(c) {
     //   case '?': // if
@@ -251,20 +243,15 @@ J.compile = function(src) {
     body: '',
   }
 
-  state.body += 'var loop = true;\n'
-  state.body += 'var inst = 0;\n'
-  state.body += 'var a, b, c, d; \n'
-  state.body += 'while(loop) {\n'
-  state.body += '\tswitch(inst) {\n'
+  state.body += 'var l=true,i=0,S=o.S,R=o.R,sm=o.sm,rm=o.rm,a,b,c,d;'
+  state.body += 'while(l){switch(i){'
 
   while (state.pos < state.len)
     next(state)
 
-  state.body += '\n\t}\n'
-  state.body += '\tloop = false;\n'
-  state.body += '}'
+  state.body += '\n}l=false}'
 
-  return new Function('VS', 'p', state.body)
+  return new Function('o', state.body)
 }
 
 })()
