@@ -50,7 +50,7 @@ J.Console = function() {
       buf32[i] = YUVtoHEX(VSTACK[offset + i])
 
     ctx.putImageData(imageData, 0, 0)
-    this.time ++
+    this.time++
   }.bind(this)
 
   // tmp: to be deleted
@@ -58,20 +58,6 @@ J.Console = function() {
     VSTACK[video.sn] = x
     video.sn = video.sn + 1 & 131071
   }
-
-  this.right = _ => {
-    var b = stack.pop() >> 16
-    var a = stack.pop()
-    var y = (a >> b) & ~(-1 << (32 - b))
-    var z =   a << (32 - b)
-    stack.push(y | z)
-  }
-
-  this.if = _ => stack.pop() != 0
-
-  this.retaddr = _ => {stack.push(rstack.pop())}
-  this.pushtors = _ => {rstack.push(stack.pop())}
-  this.loadimm = x => {stack.push(x)}
 
   // x in 0..255 -> x in -1.000...1.000
   var coord = v => {
@@ -88,53 +74,53 @@ J.Console = function() {
   }
 }
 
-var vsincr = 'o.sn=o.sn+1&sm;'
-var vsdecr = 'o.sn=o.sn+sm&sm;'
-var vrincr = 'o.rn=o.rn+1&rm;'
-var vrdecr = 'o.rn=o.rn+rm&rm;'
+var sincr = 'o.sn=o.sn+1&sm;'
+var sdecr = 'o.sn=o.sn+sm&sm;'
+var rincr = 'o.rn=o.rn+1&rm;'
+var rdecr = 'o.rn=o.rn+rm&rm;'
 
 var codes = {
-  '+': vsdecr
+  '+': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]+S[o.sn];',
-  '-': vsdecr
+  '-': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]-S[o.sn];',
-  '*': vsdecr
+  '*': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]*S[o.sn]>>16;',
-  '/': vsdecr
+  '/': sdecr
      + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[o.sn]==0?0:(S[a]<<16)/S[o.sn];',
-  '%': vsdecr
+     + 'S[a]=S[o.sn]==0?0:(S[a]*65536)/S[o.sn];',
+  '%': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[o.sn]==0?0:S[a]%S[o.sn];',
   'q': 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536:0;',
-  '&': vsdecr
+  '&': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]&S[o.sn];',
-  '|': vsdecr
+  '|': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]|S[o.sn];',
-  '^': vsdecr
+  '^': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]^S[o.sn];',
   // rotate shift
   // maybe left shift should also rotate?
-  'r': vsdecr
+  'r': sdecr
      + 'a=o.sn+sm&sm;'
      + 'b=S[o.sn]>>16;'
      + 'c=S[a];'
      + 'S[a]=(c>>b)|(c<<(16-c));',
-  'l': vsdecr
+  'l': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]<<(S[o.sn]>>16);',
   '~': 'a=o.sn+sm&sm;'
      + 'S[a]=~S[a];',
   's': 'a=o.sn+sm&sm;'
      + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
-  'a': vsdecr
+  'a': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=Math.atan(S[a]/65536,S[o.sn]/65536)/Math.PI*32768;',
   '<': 'a=o.sn+sm&sm;'
@@ -144,8 +130,8 @@ var codes = {
   '=': 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]==0;',
   'd': 'S[o.sn]=S[o.sn+sm&sm];'
-     + vsincr,
-  'p': vsdecr,
+     + sincr,
+  'p': sdecr,
   'x': 'a=o.sn+sm&sm;'
      + 'b=a+sm&sm;'
      + 'c=S[a];S[a]=S[b];S[b]=c;',
@@ -157,9 +143,9 @@ var codes = {
   // todo: test this thoroughly
   ')': 'a=o.sn+sm&sm;'
      + 'S[a]=S[a+sm+1-(S[a]>>16)&sm]',
-  '(': vsdecr
+  '(': sdecr
      + 'a=S[o.sn]>>16;'
-     + vsdecr
+     + sdecr
      + 'S[o.sn+sm-a&sm]=S[o.sn]',
   'w': 'c.whereami();',
   'T': 'break;',
@@ -171,7 +157,7 @@ var codes = {
   'j': 'c.outdex();',
   'R': 'c.retaddr();',
   'P': 'c.pushtors();',
-  'J': vsdecr
+  'J': sdecr
      + 'i=S[o.sn];continue;'
 }
 
@@ -213,7 +199,7 @@ function next(state) {
     var integer = parseInt(c, 16) << 16
     while(state.pos < state.len && isHexaDecimal(state.src[state.pos]))
       integer = integer << 4 | parseInt(state.src[state.pos++], 16)
-    state.body += 'S[o.sn]='+integer+';' + vsincr;
+    state.body += 'S[o.sn]='+integer+';' + sincr;
   }
 
   else {
