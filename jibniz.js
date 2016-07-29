@@ -122,7 +122,7 @@ var codes = {
      + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
   'a': sdecr
      + 'a=o.sn+sm&sm;'
-     + 'S[a]=Math.atan(S[a]/65536,S[o.sn]/65536)/Math.PI*32768;',
+     + 'S[a]=Math.atan2(S[a]/65536,S[o.sn]/65536)/Math.PI*32768;',
   '<': 'a=o.sn+sm&sm;'
      + 'if(S[a]>0)S[a]=0;',
   '>': 'a=o.sn+sm&sm;'
@@ -157,6 +157,7 @@ var codes = {
   'j': 'c.outdex();',
   'R': 'c.retaddr();',
   'P': 'c.pushtors();',
+  'U': '',
   'J': sdecr
      + 'i=S[o.sn];continue;'
 }
