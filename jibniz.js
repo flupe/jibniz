@@ -74,92 +74,199 @@ J.Console = function() {
   }
 }
 
+// increase/decrease stack pointer
 var sincr = 'o.sn=o.sn+1&sm;'
 var sdecr = 'o.sn=o.sn+sm&sm;'
+
+// increase/decrease ret pointer
 var rincr = 'o.rn=o.rn+1&rm;'
 var rdecr = 'o.rn=o.rn+rm&rm;'
 
 var codes = {
+
+  // ARITHMETIC
+
   '+': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]+S[o.sn];',
+
   '-': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]-S[o.sn];',
+
   '*': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]*S[o.sn]>>16;',
+
   '/': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[o.sn]==0?0:(S[a]*65536)/S[o.sn];',
+
   '%': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[o.sn]==0?0:S[a]%S[o.sn];',
+
+  // square root
   'q': 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536:0;',
+
   '&': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]&S[o.sn];',
+
   '|': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]|S[o.sn];',
+
   '^': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]^S[o.sn];',
+
   // rotate shift
-  // maybe left shift should also rotate?
   'r': sdecr
      + 'a=o.sn+sm&sm;'
      + 'b=S[o.sn]>>16;'
      + 'c=S[a];'
      + 'S[a]=(c>>b)|(c<<(16-c));',
+
+  // TODO: check whether it should be arithmetical or logical
   'l': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]<<(S[o.sn]>>16);',
+
   '~': 'a=o.sn+sm&sm;'
      + 'S[a]=~S[a];',
+
+  // sin
   's': 'a=o.sn+sm&sm;'
      + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
+
+  // atan
   'a': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=Math.atan2(S[a]/65536,S[o.sn]/65536)/Math.PI*32768;',
+
   '<': 'a=o.sn+sm&sm;'
      + 'if(S[a]>0)S[a]=0;',
+
   '>': 'a=o.sn+sm&sm;'
      + 'if(S[a]<0)S[a]=0;',
+
   '=': 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]==0;',
+     + 'S[a]=(S[a]==0)<<16;',
+
+
+  // STACK MANIPULATION
+
+  // dup: a -- a a
   'd': 'S[o.sn]=S[o.sn+sm&sm];'
      + sincr,
+
+  // pop: a --
   'p': sdecr,
+
+  // exchange: a b -- b a
   'x': 'a=o.sn+sm&sm;'
      + 'b=a+sm&sm;'
      + 'c=S[a];S[a]=S[b];S[b]=c;',
+
+  // trirot: a b c -- b c a
   'v': 'a=o.sn+sm&sm;'
      + 'b=a+sm&sm;'
      + 'c=b+sm&sm;'
      + 'd=S[a];S[a]=S[c];S[c]=S[b];S[b]=d;',
 
-  // todo: test this thoroughly
+  // pick: i -- val
+  // TODO: wrap within stack range
   ')': 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a+sm+1-(S[a]>>16)&sm]',
+     + 'S[a]=S[a+sm+1-(S[a]>>16)&sm];',
+
+  // bury: val i --
   '(': sdecr
      + 'a=S[o.sn]>>16;'
      + sdecr
-     + 'S[o.sn+sm-a&sm]=S[o.sn]',
+     + 'S[o.sn+sm-a&sm]=S[o.sn];',
+
+
+  // EXTERIOR LOOP
+
+  // M: mediaswitch
+
+  // whereami
   'w': 'c.whereami();',
+
+  // terminate
   'T': 'break;',
+
+
+  // MEMORY MANIPULATION
+
+  // load: addr -- val
   '@': 'a=o.sn+sm&sm;'
      + 'b=S[a];'
-     + 'S[a]=MM[(b>>>16)|((b&0xf000)<<4)]',
-  '!': 'c.store();',
-  'i': 'c.index();',
-  'j': 'c.outdex();',
-  'R': 'c.retaddr();',
-  'P': 'c.pushtors();',
-  'U': '',
+     + 'S[a]=MM[(b>>>16)|((b&0xf)<<16)];',
+
+  // store: val addr --
+  '!': '',
+
+
+  // PROGRAM CONTROL
+
+  // Conditional Execution
+
+  // if, else, endif
+  // TODO: take care of this at parsing
+  //       i.e. finding end of scopes
+
+  // Loops
+
+  // times: i0 --
+  'X': '',
+
+  // loop
+  'L': '',
+
+  // index: -- i
+  'i': '',
+
+  // outdex: -- j
+  'j': '',
+
+  // do
+  '[': '',
+
+  // while: cond --
+  ']': '',
+
+  // jump: v --
   'J': sdecr
-     + 'i=S[o.sn];continue;'
+     + 'i=S[o.sn];continue;',
+
+
+  // Subroutines
+
+  // defsub: i --
+  // (handled at parsing (we skip to the end of the definition)
+
+  // return
+  '}': '',
+
+  // visit: i --
+  'V': '',
+
+
+  // Return stack manipulation
+
+  // retaddr: -- val | val --
+  'R': '',
+
+  // pushtors: val -- | -- val
+  'P': '',
+
+  // INPUT
+
+  // userin: -- inword
+  'U': '',
 }
 
 function eatUntil(state, check) {
@@ -195,7 +302,7 @@ function next(state) {
     state.body += codes[c]
   }
 
-  // todo: take fractional part into account
+  // TODO: take fractional part into account
   else if (isHexaDecimal(c)) {
     var integer = parseInt(c, 16) << 16
     while(state.pos < state.len && isHexaDecimal(state.src[state.pos]))
