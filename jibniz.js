@@ -202,11 +202,12 @@ let codes = {
   // load: addr -- val
   '@': 'a=sn+sm&sm;'
      + 'b=S[a];'
-     + 'S[a]=MM[(b>>>16)|((b&0xf)<<16)];',
+     + 'S[a]=M[(b>>>16)|((b&0xf)<<16)];',
 
   // store: val addr --
-  '!': '',
-
+  '!': 'b=S[sn=sn+sm&sm];'
+     + 'a=S[sn=sn+sm&sm];'
+     + 'M[(b>>>16)|((b&0xf)<<16)]=a;',
 
   // PROGRAM CONTROL
 
@@ -244,10 +245,14 @@ let codes = {
 
   // Return stack manipulation
   // retaddr: -- val | val --
-  'R': '',
+  'R': rdecr
+     + 'S[sn]=R[rb];'
+     + sincr,
 
   // pushtors: val -- | -- val
-  'P': '',
+  'P': sdecr
+     + 'R[rn]=S[sn];'
+     + rincr,
 
   // INPUT
 
