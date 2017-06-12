@@ -7,7 +7,10 @@
     <script src="jibniz.js"></script>
     <script>
       var VM = new jibniz.Console
-      VM.program = jibniz.compile('sv5rvs--')
+      VM.program = jibniz.compile(`
+        \\a comment for the masses
+        sv5rvs--
+      `)
       document.body.appendChild(VM.domElement)
 
       VM.run()
