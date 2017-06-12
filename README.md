@@ -4,7 +4,6 @@
 ### todo:
 - Check whether a giant switch statement is such a good idea. As I recall function calls are *really* expensive in JS, so I would like to avoid storing every instruction as a function in a big array, but I fear switch statements being not very efficient.  
   Maybe an hybrid solution, a table of instruction can only be used for conditional branches?
-- Conditional execution.
 - Loops.
 - Basic support for audio.
 - User input.

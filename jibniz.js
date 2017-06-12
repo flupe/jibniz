@@ -1,36 +1,36 @@
 (function() {
 'use strict'
 
-var raf = window.requestAnimationFrame
-var J = window.jibniz = {}
+let raf = window.requestAnimationFrame
+let J = window.jibniz = {}
 
 // VVUU.YYYY
-var YUVtoHEX = c => {
-  var l = (c >>> 8) & 0xff
+let YUVtoHEX = c => {
+  let l = (c >>> 8) & 0xff
   return 0xff000000 | l << 16 | l << 8 | l
 }
 
 J.Console = function() {
-  var cvs = this.domElement = document.createElement('canvas')
-  var ctx = cvs.getContext('2d')
+  let cvs = this.domElement = document.createElement('canvas')
+  let ctx = cvs.getContext('2d')
 
-  var MEM     = new Int32Array(1048576)
-  var USRDATA = new Int32Array(MEM.buffer, 0, 786432)
-  var ARSTACK = new Int32Array(MEM.buffer, 102400, 16384)
-  var VRSTACK = new Int32Array(MEM.buffer, 104448, 16384)
-  var ASTACK  = new Int32Array(MEM.buffer, 106496, 65536)
-  var VSTACK  = new Int32Array(MEM.buffer, 114688, 131072)
+  let MEM     = new Int32Array(1048576)
+  let USRDATA = new Int32Array(MEM.buffer, 0, 786432)
+  let ARSTACK = new Int32Array(MEM.buffer, 102400, 16384)
+  let VRSTACK = new Int32Array(MEM.buffer, 104448, 16384)
+  let ASTACK  = new Int32Array(MEM.buffer, 106496, 65536)
+  let VSTACK  = new Int32Array(MEM.buffer, 114688, 131072)
 
-  var audio = { S: ASTACK, sn: 0, sm: 65535, R: ARSTACK, rn: 0, rm: 16383 }
-  var video = { S: VSTACK, sn: 0, sm: 131071, R: VRSTACK, rn: 0, rm: 16383 }
+  let audio = { S: ASTACK, sn: 0, sm: 65535, R: ARSTACK, rn: 0, rm: 16383 }
+  let video = { S: VSTACK, sn: 0, sm: 131071, R: VRSTACK, rn: 0, rm: 16383 }
 
   cvs.width = cvs.height = 256
-  var imageData = ctx.createImageData(256, 256)
-  var buf32 = new Uint32Array(imageData.data.buffer)
+  let imageData = ctx.createImageData(256, 256)
+  let buf32 = new Uint32Array(imageData.data.buffer)
 
   this.time = 0
   // position of the current fragment
-  var x = 0, y = 0
+  let x = 0, y = 0
 
   this.run = function() {
     raf(this.step)
@@ -45,8 +45,8 @@ J.Console = function() {
       }
     }
 
-    var offset = video.sn < 65536 ? 65536 : 0
-    for (var i = 65536; i--;)
+    let offset = video.sn < 65536 ? 65536 : 0
+    for (let i = 65536; i--;)
       buf32[i] = YUVtoHEX(VSTACK[offset + i])
 
     ctx.putImageData(imageData, 0, 0)
@@ -60,9 +60,9 @@ J.Console = function() {
   }
 
   // x in 0..255 -> x in -1.000...1.000
-  var coord = v => {
-    var s = Math.sign(v - 128)
-    var r = Math.abs(v - 128)
+  let coord = v => {
+    let s = Math.sign(v - 128)
+    let r = Math.abs(v - 128)
     return (r << 9) * s
   }
 
@@ -75,14 +75,14 @@ J.Console = function() {
 }
 
 // increase/decrease stack pointer
-var sincr = 'o.sn=o.sn+1&sm;'
-var sdecr = 'o.sn=o.sn+sm&sm;'
+let sincr = 'o.sn=o.sn+1&sm;'
+let sdecr = 'o.sn=o.sn+sm&sm;'
 
 // increase/decrease ret pointer
-var rincr = 'o.rn=o.rn+1&rm;'
-var rdecr = 'o.rn=o.rn+rm&rm;'
+let rincr = 'o.rn=o.rn+1&rm;'
+let rdecr = 'o.rn=o.rn+rm&rm;'
 
-var codes = {
+let codes = {
 
   // ARITHMETIC
 
@@ -129,7 +129,6 @@ var codes = {
      + 'c=S[a];'
      + 'S[a]=(c>>b)|(c<<(16-c));',
 
-  // TODO: check whether it should be arithmetical or logical
   'l': sdecr
      + 'a=o.sn+sm&sm;'
      + 'S[a]=S[a]<<(S[o.sn]>>16);',
@@ -187,7 +186,6 @@ var codes = {
      + sdecr
      + 'S[o.sn+sm-a&sm]=S[o.sn];',
 
-
   // EXTERIOR LOOP
 
   // M: mediaswitch
@@ -242,7 +240,6 @@ var codes = {
   'J': sdecr
      + 'i=S[o.sn];continue;',
 
-
   // Subroutines
 
   // defsub: i --
@@ -274,23 +271,23 @@ function eatUntil(state, check) {
     next(state)
 }
 
-var isEndIf   = c => c == ':' || c == ';'
-var isEndElse = c => c == ';'
+let isEndIf   = c => c == ':' || c == ';'
+let isEndElse = c => c == ';'
 
-var isHexaDecimal = c => {
-  // we can probably all agree this is ugly
+let isHexaDecimal = c => {
   return !isNaN(c) || c == 'A' || c == 'B' || c == 'C'
                    || c == 'D' || c == 'E' || c == 'F'
 }
 
-var isBlank = c => c == ' ' || c == ',' || c == ';' || c == '\n'
+let isBlank = c => c == ' ' || c == ',' || c == ';' || c == '\n'
 
 function next(state) {
-  var c = state.src[state.pos++]
+  let c = state.src[state.pos++]
 
   if (isBlank(c))
     return
 
+  // comments
   if (c == '\\') {
     while (state.pos < state.len && state.src[state.pos++] != '\n') {}
     return
@@ -304,40 +301,65 @@ function next(state) {
 
   // TODO: take fractional part into account
   else if (isHexaDecimal(c)) {
-    var integer = parseInt(c, 16) << 16
+    let integer = parseInt(c, 16) << 16
     while(state.pos < state.len && isHexaDecimal(state.src[state.pos]))
       integer = integer << 4 | parseInt(state.src[state.pos++], 16)
     state.body += 'S[o.sn]='+integer+';' + sincr;
   }
 
   else {
-    // switch(c) {
-    //   case '?': // if
-    //     state.body += 'if(c.if()) {' // not pretty, but eh
-    //     eatUntil(state, isEndIf)
-    //     state.body += '}'
-    //     break
-    //   case ':': // else
-    //     // to improve, regarding error handling
-    //     state.body += ' else {'
-    //     eatUntil(state, isEndElse)
-    //     state.body += '}'
-    //     break
-    //   // todo: subroutines and such
-    // }
+    if (c == '?') {
+      let subs = {
+        src:  state.src,
+        pos:  state.pos,
+        inst: state.inst,
+        len:  state.len,
+        body: '',
+      }
+
+      while (subs.pos < subs.len &&
+             subs.src[subs.pos] != ':' &&
+             subs.src[subs.pos] != ';' ) {
+        next(subs)
+      }
+
+      // EOF is the end of scope
+      if (subs.pos == subs.len) {
+        state.body += sdecr
+                   + 'if(S[o.sn]==0)break;'
+      }
+
+      else {
+        state.body += sdecr
+                   + 'if(S[o.sn]==0){i=' + subs.inst + ';continue};'
+
+        // else
+        if (subs.src[subs.pos] == ':') {
+          subs.pos++
+          while (subs.pos < subs.len &&
+                 subs.src[subs.pos] != ';' ) {
+            next(subs)
+          }
+        }
+      }
+
+      state.body += subs.body
+      state.inst = subs.inst
+      state.pos  = subs.pos
+    }
   }
 }
 
 J.compile = function(src) {
-  var state = {
+  let state = {
     src,
-    pos: 0,
+    pos:  0,
     inst: 0,
-    len: src.length,
+    len:  src.length,
     body: '',
   }
 
-  state.body += 'var l=true,i=0,S=o.S,R=o.R,sm=o.sm,rm=o.rm,a,b,c,d;'
+  state.body += 'let l=true,i=0,S=o.S,R=o.R,sm=o.sm,rm=o.rm,a,b,c,d;'
   state.body += 'while(l){switch(i){'
 
   while (state.pos < state.len)
