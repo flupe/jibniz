@@ -75,116 +75,116 @@ J.Console = function() {
 }
 
 // increase/decrease stack pointer
-let sincr = 'o.sn=o.sn+1&sm;'
-let sdecr = 'o.sn=o.sn+sm&sm;'
+let sincr = 'sn=sn+1&sm;'
+let sdecr = 'sn=sn+sm&sm;'
 
 // increase/decrease ret pointer
-let rincr = 'o.rn=o.rn+1&rm;'
-let rdecr = 'o.rn=o.rn+rm&rm;'
+let rincr = 'rn=rn+1&rm;'
+let rdecr = 'rn=rn+rm&rm;'
 
 let codes = {
 
   // ARITHMETIC
 
   '+': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]+S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]+S[sn];',
 
   '-': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]-S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]-S[sn];',
 
   '*': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]*S[o.sn]>>16;',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]*S[sn]>>16;',
 
   '/': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[o.sn]==0?0:(S[a]*65536)/S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[sn]==0?0:(S[a]*65536)/S[sn];',
 
   '%': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[o.sn]==0?0:S[a]%S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[sn]==0?0:S[a]%S[sn];',
 
   // square root
-  'q': 'a=o.sn+sm&sm;'
+  'q': 'a=sn+sm&sm;'
      + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536:0;',
 
   '&': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]&S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]&S[sn];',
 
   '|': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]|S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]|S[sn];',
 
   '^': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]^S[o.sn];',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]^S[sn];',
 
   // rotate shift
   'r': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'b=S[o.sn]>>16;'
+     + 'a=sn+sm&sm;'
+     + 'b=S[sn]>>16;'
      + 'c=S[a];'
      + 'S[a]=(c>>b)|(c<<(16-c));',
 
   'l': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=S[a]<<(S[o.sn]>>16);',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=S[a]<<(S[sn]>>16);',
 
-  '~': 'a=o.sn+sm&sm;'
+  '~': 'a=sn+sm&sm;'
      + 'S[a]=~S[a];',
 
   // sin
-  's': 'a=o.sn+sm&sm;'
+  's': 'a=sn+sm&sm;'
      + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
 
   // atan
   'a': sdecr
-     + 'a=o.sn+sm&sm;'
-     + 'S[a]=Math.atan2(S[a]/65536,S[o.sn]/65536)/Math.PI*32768;',
+     + 'a=sn+sm&sm;'
+     + 'S[a]=Math.atan2(S[a]/65536,S[sn]/65536)/Math.PI*32768;',
 
-  '<': 'a=o.sn+sm&sm;'
+  '<': 'a=sn+sm&sm;'
      + 'if(S[a]>0)S[a]=0;',
 
-  '>': 'a=o.sn+sm&sm;'
+  '>': 'a=sn+sm&sm;'
      + 'if(S[a]<0)S[a]=0;',
 
-  '=': 'a=o.sn+sm&sm;'
+  '=': 'a=sn+sm&sm;'
      + 'S[a]=(S[a]==0)<<16;',
 
 
   // STACK MANIPULATION
 
   // dup: a -- a a
-  'd': 'S[o.sn]=S[o.sn+sm&sm];'
+  'd': 'S[sn]=S[sn+sm&sm];'
      + sincr,
 
   // pop: a --
   'p': sdecr,
 
   // exchange: a b -- b a
-  'x': 'a=o.sn+sm&sm;'
+  'x': 'a=sn+sm&sm;'
      + 'b=a+sm&sm;'
      + 'c=S[a];S[a]=S[b];S[b]=c;',
 
   // trirot: a b c -- b c a
-  'v': 'a=o.sn+sm&sm;'
+  'v': 'a=sn+sm&sm;'
      + 'b=a+sm&sm;'
      + 'c=b+sm&sm;'
      + 'd=S[a];S[a]=S[c];S[c]=S[b];S[b]=d;',
 
   // pick: i -- val
   // TODO: wrap within stack range
-  ')': 'a=o.sn+sm&sm;'
+  ')': 'a=sn+sm&sm;'
      + 'S[a]=S[a+sm+1-(S[a]>>16)&sm];',
 
   // bury: val i --
   '(': sdecr
-     + 'a=S[o.sn]>>16;'
+     + 'a=S[sn]>>16;'
      + sdecr
-     + 'S[o.sn+sm-a&sm]=S[o.sn];',
+     + 'S[sn+sm-a&sm]=S[sn];',
 
   // EXTERIOR LOOP
 
@@ -200,7 +200,7 @@ let codes = {
   // MEMORY MANIPULATION
 
   // load: addr -- val
-  '@': 'a=o.sn+sm&sm;'
+  '@': 'a=sn+sm&sm;'
      + 'b=S[a];'
      + 'S[a]=MM[(b>>>16)|((b&0xf)<<16)];',
 
@@ -217,32 +217,30 @@ let codes = {
   //       i.e. finding end of scopes
 
   // Loops
-  // times: i0 --
-  'X': '',
-
   // loop
-  'L': '',
+  'L': 'a=--R[rn+(rm<<1)&rm];'
+     + 'if(a!=0){i=R[rn+rm&rm];continue}'
+     + 'else ' + rdecr,
 
   // index: -- i
-  'i': '',
+  'i': 'S[sn]=R[rn+(rm<<1)&rm];' + sincr,
 
   // outdex: -- j
-  'j': '',
-
-  // do
-  '[': '',
+  'j': 'S[sn]=R[rn+(rm<<2)&rm];' + sincr,
 
   // while: cond --
-  ']': '',
+  ']': sdecr
+     + 'if(S[sn]!=0){i=R[rn+rm&rm];continue}'
+     + 'else ' + rdecr,
 
   // jump: v --
   'J': sdecr
-     + 'i=S[o.sn];continue;',
+     + 'i=S[sn];continue;',
 
   // Subroutines
   // return
   '}': rdecr
-     + 'i=R[o.rn];continue;',
+     + 'i=R[rn];continue;',
 
   // Return stack manipulation
   // retaddr: -- val | val --
@@ -254,7 +252,7 @@ let codes = {
   // INPUT
 
   // userin: -- inword
-  'U': '',
+  'U': 'S[sn]=u;' + sincr,
 }
 
 function eatUntil(state, check) {
@@ -292,7 +290,7 @@ function next(state) {
     let integer = parseInt(c, 16) << 16
     while(state.pos < state.len && isHexaDecimal(state.src[state.pos]))
       integer = integer << 4 | parseInt(state.src[state.pos++], 16)
-    state.body += 'S[o.sn]='+integer+';' + sincr;
+    state.body += 'S[sn]='+integer+';' + sincr;
   }
 
   else {
@@ -314,12 +312,12 @@ function next(state) {
       // EOF is the end of scope
       if (subs.pos >= subs.len) {
         state.body += sdecr
-                   + 'if(S[o.sn]==0)break;'
+                   + 'if(S[sn]==0)break;'
       }
 
       else {
         state.body += sdecr
-                   + 'if(S[o.sn]==0){i=' + subs.inst + ';continue};'
+                   + 'if(S[sn]==0){i=' + subs.inst + ';continue};'
 
         // else
         if (subs.src[subs.pos] == ':') {
@@ -353,7 +351,7 @@ function next(state) {
         next(subs)
 
       state.body += sdecr
-                  + 'M[S[o.sn]>>16]=' + state.inst + ';'
+                  + 'M[S[sn]>>16]=' + state.inst + ';'
                   + 'i=' + subs.inst + ';continue;'
 
       state.pos = subs.pos + 1
@@ -363,10 +361,23 @@ function next(state) {
 
     else if (c == 'V') {
       state.body += sdecr
-                  + 'i=M[S[o.sn]>>16];'
-                  + 'R[o.rn]=' + state.inst + ';'
+                  + 'i=M[S[sn]>>16];'
+                  + 'R[rn]=' + state.inst + ';'
                   + rincr
                   + 'continue;'
+    }
+
+    else if (c == 'X') {
+      state.body += sdecr
+                  + 'R[rn]=S[sn];'
+                  + rincr
+                  + 'R[rn]=' + state.inst + ';'
+                  + rincr
+    }
+
+    else if (c == '[') {
+      state.body += 'R[rn]=' + state.inst + ';'
+                  + rincr
     }
   }
 }
@@ -380,13 +391,13 @@ J.compile = function(src) {
     body: '',
   }
 
-  state.body += 'let l=true,i=0,S=o.S,R=o.R,sm=o.sm,rm=o.rm,a,b,c,d;'
+  state.body += 'let l=true,i=0,{S,R,sm,rm,sn,rn}=o,a,b,c,d;'
   state.body += 'while(l){switch(i){'
 
   while (state.pos < state.len)
     next(state)
 
-  state.body += '\n}l=false}'
+  state.body += '\n}l=false}o.sn=sn;o.rn=rn'
 
   return new Function('o', 'M', state.body)
 }
