@@ -8,9 +8,11 @@
     <script>
       var VM = new jibniz.Console
       VM.program = jibniz.compile(`
-        \\ munching squares
-        \\ ^x7r+
-        vpp>?p1,1r:0
+
+        1{^x7r+}
+        2{^xp}
+        1V
+
       `)
       document.body.appendChild(VM.domElement)
 

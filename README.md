@@ -9,7 +9,6 @@
 - User input.
 - External data segment.
 - For the life of god fix this colour conversion from YUV to RGB.
-- Support for subroutines.
 - "smart" mode detection.
 - Somehow add tests.
 - Static analysis.  

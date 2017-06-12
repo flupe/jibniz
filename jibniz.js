@@ -41,7 +41,7 @@ J.Console = function() {
     for (y = 0; y < 256; y++) {
       for(x = 0; x < 256; x++) {
         this.whereami()
-        this.program(video)
+        this.program(video, MEM)
       }
     }
 
@@ -191,7 +191,7 @@ let codes = {
   // M: mediaswitch
 
   // whereami
-  'w': 'c.whereami();',
+  'w': '',
 
   // terminate
   'T': 'break;',
@@ -217,7 +217,6 @@ let codes = {
   //       i.e. finding end of scopes
 
   // Loops
-
   // times: i0 --
   'X': '',
 
@@ -241,19 +240,11 @@ let codes = {
      + 'i=S[o.sn];continue;',
 
   // Subroutines
-
-  // defsub: i --
-  // (handled at parsing (we skip to the end of the definition)
-
   // return
-  '}': '',
-
-  // visit: i --
-  'V': '',
-
+  '}': rdecr
+     + 'i=R[o.rn];continue;',
 
   // Return stack manipulation
-
   // retaddr: -- val | val --
   'R': '',
 
@@ -270,9 +261,6 @@ function eatUntil(state, check) {
   while(state.pos < state.len && !check(state.src[state.pos]))
     next(state)
 }
-
-let isEndIf   = c => c == ':' || c == ';'
-let isEndElse = c => c == ';'
 
 let isHexaDecimal = c => {
   return !isNaN(c) || c == 'A' || c == 'B' || c == 'C'
@@ -319,12 +307,12 @@ function next(state) {
 
       while (subs.pos < subs.len &&
              subs.src[subs.pos] != ':' &&
-             subs.src[subs.pos] != ';' ) {
+             subs.src[subs.pos] != ';') {
         next(subs)
       }
 
       // EOF is the end of scope
-      if (subs.pos == subs.len) {
+      if (subs.pos >= subs.len) {
         state.body += sdecr
                    + 'if(S[o.sn]==0)break;'
       }
@@ -347,6 +335,39 @@ function next(state) {
       state.inst = subs.inst
       state.pos  = subs.pos
     }
+
+    else if (c == '{') {
+      let subs = {
+        src:  state.src,
+        pos:  state.pos,
+        inst: state.inst,
+        len:  state.len,
+        body: '',
+      }
+
+      while (subs.pos < subs.len && subs.src[subs.pos] != '}') {
+        next(subs)
+      }
+
+      if (subs.pos < subs.len)
+        next(subs)
+
+      state.body += sdecr
+                  + 'M[S[o.sn]>>16]=' + state.inst + ';'
+                  + 'i=' + subs.inst + ';continue;'
+
+      state.pos = subs.pos + 1
+      state.body += subs.body
+      state.inst = subs.inst
+    }
+
+    else if (c == 'V') {
+      state.body += sdecr
+                  + 'i=M[S[o.sn]>>16];'
+                  + 'R[o.rn]=' + state.inst + ';'
+                  + rincr
+                  + 'continue;'
+    }
   }
 }
 
@@ -367,7 +388,7 @@ J.compile = function(src) {
 
   state.body += '\n}l=false}'
 
-  return new Function('o', state.body)
+  return new Function('o', 'M', state.body)
 }
 
 })()
