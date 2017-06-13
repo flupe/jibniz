@@ -127,7 +127,7 @@ let codes = {
      + 'a=sn+sm&sm;'
      + 'b=S[sn]>>16;'
      + 'c=S[a];'
-     + 'S[a]=(c>>b)|(c<<(16-c));',
+     + 'S[a]=(c>>>b)|(c<<(16-c));',
 
   'l': sdecr
      + 'a=sn+sm&sm;'
@@ -290,12 +290,34 @@ function next(state) {
     state.body += codes[c]
   }
 
-  // TODO: take fractional part into account
-  else if (isHexaDecimal(c)) {
-    let integer = parseInt(c, 16) << 16
-    while(state.pos < state.len && isHexaDecimal(state.src[state.pos]))
-      integer = integer << 4 | parseInt(state.src[state.pos++], 16)
-    state.body += 'S[sn]='+integer+';' + sincr;
+  else if (isHexaDecimal(c) || c == '.') {
+    let imm = 0
+
+    if (c != '.') {
+      imm = parseInt(c, 16)
+
+      while (state.pos < state.len && isHexaDecimal(state.src[state.pos]))
+        imm = imm << 4 | parseInt(state.src[state.pos++], 16)
+
+      imm <<= 16
+      c = state.src[state.pos]
+      if (c == '.') state.pos++
+    }
+
+    if (c == '.') {
+      let i = 0, frac = 0
+
+      for (; i < 4 && isHexaDecimal(state.src[state.pos]); i++)
+        frac = frac << 4 | parseInt(state.src[state.pos++], 16) 
+
+      // we ignore the following decimals
+      while (state.pos < state.len && isHexaDecimal(state.src[state.pos]))
+        state.pos++
+
+      imm |= (frac << (4 - i))
+    }
+
+    state.body += 'S[sn]=' + imm + ';' + sincr;
   }
 
   else {
