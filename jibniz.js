@@ -29,6 +29,9 @@ J.Console = function() {
   let buf32 = new Uint32Array(imageData.data.buffer)
 
   this.time = 0
+  // for now, by default and until we do proper mode detection
+  this.tyx = true
+
   // position of the current fragment
   let x = 0, y = 0
 
@@ -38,10 +41,13 @@ J.Console = function() {
 
   this.step = function() {
     raf(this.step)
+
+    let w = this.tyx ? whereami_tyx : whereami_t
+
     for (y = 0; y < 256; y++) {
       for(x = 0; x < 256; x++) {
-        this.whereami()
-        this.program(video, MEM)
+        w(video.sn)
+        this.program(video, MEM, w)
       }
     }
 
@@ -56,7 +62,7 @@ J.Console = function() {
   // tmp: to be deleted
   function push(x) {
     VSTACK[video.sn] = x
-    video.sn = video.sn + 1 & 131071
+    video.sn = video.sn + 1 & video.sm
   }
 
   // x in 0..255 -> x in -1.000...1.000
@@ -66,12 +72,20 @@ J.Console = function() {
     return (r << 9) * s
   }
 
-  this.whereami = _ => {
-    // for now, assuming video mode
+  let whereami_tyx = (sn) => {
+    video.sn = sn
     push(this.time << 16)
     push(coord(y))
     push(coord(x))
+    return video.sn
   }
+
+  let whereami_t = (sn) => {
+    video.sn = sn
+    push(this.time << 16 | y << 8 | x)
+    return video.sn
+  }
+
 }
 
 // increase/decrease stack pointer
@@ -191,7 +205,7 @@ let codes = {
   // M: mediaswitch
 
   // whereami
-  'w': '',
+  'w': 'sn=w(sn);',
 
   // terminate
   'T': 'break;',
@@ -426,7 +440,7 @@ J.compile = function(src) {
 
   state.body += '\n}l=false}o.sn=sn;o.rn=rn'
 
-  return new Function('o', 'M', state.body)
+  return new Function('o', 'M', 'w', state.body)
 }
 
 })()
