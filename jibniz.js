@@ -65,12 +65,9 @@ J.Console = function() {
     video.sn = video.sn + 1 & video.sm
   }
 
-  // x in 0..255 -> x in -1.000...1.000
-  let coord = v => {
-    let s = Math.sign(v - 128)
-    let r = Math.abs(v - 128)
-    return (r << 9) * s
-  }
+  let coord = v => v - 128 << 8
+
+  console.log(coord(256).toString(16))
 
   let whereami_tyx = (sn) => {
     video.sn = sn
@@ -110,7 +107,7 @@ let codes = {
 
   '*': sdecr
      + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]*S[sn]>>16;',
+     + 'S[a]=(S[a]/65536)*(S[sn]/65536)*65536|0;',
 
   '/': sdecr
      + 'a=sn+sm&sm;'
@@ -122,7 +119,7 @@ let codes = {
 
   // square root
   'q': 'a=sn+sm&sm;'
-     + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536:0;',
+     + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536|0:0;',
 
   '&': sdecr
      + 'a=sn+sm&sm;'
@@ -139,13 +136,13 @@ let codes = {
   // rotate shift
   'r': sdecr
      + 'a=sn+sm&sm;'
-     + 'b=S[sn]>>16;'
+     + 'b=S[sn]>>>16;'
      + 'c=S[a];'
      + 'S[a]=(c>>>b)|(c<<(16-c));',
 
   'l': sdecr
      + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]<<(S[sn]>>16);',
+     + 'S[a]=S[a]<<(S[sn]>>>16);',
 
   '~': 'a=sn+sm&sm;'
      + 'S[a]=~S[a];',
@@ -157,7 +154,7 @@ let codes = {
   // atan
   'a': sdecr
      + 'a=sn+sm&sm;'
-     + 'S[a]=Math.atan2(S[a]/65536,S[sn]/65536)/Math.PI*32768;',
+     + 'S[a]=Math.atan2(S[sn]/65536,S[a]/65536)/Math.PI*32768;',
 
   '<': 'a=sn+sm&sm;'
      + 'if(S[a]>0)S[a]=0;',
