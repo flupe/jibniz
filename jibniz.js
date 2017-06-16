@@ -6,8 +6,8 @@ let J = window.jibniz = {}
 
 // VVUU.YYYY
 let YUVtoHEX = c => {
-  let l = (c >>> 8) & 0xff
-  return 0xff000000 | l << 16 | l << 8 | l
+  let y = c >> 8 & 0xff
+  return 0xff000000 | y << 16 | y << 8 | y
 }
 
 J.Console = function() {
@@ -21,10 +21,11 @@ J.Console = function() {
   let ASTACK  = new Int32Array(MEM.buffer, 106496, 65536)
   let VSTACK  = new Int32Array(MEM.buffer, 114688, 131072)
 
-  let audio = { S: ASTACK, sn: 0, sm: 65535, R: ARSTACK, rn: 0, rm: 16383 }
+  let audio = { S: ASTACK, sn: 0, sm:  65535, R: ARSTACK, rn: 0, rm: 16383 }
   let video = { S: VSTACK, sn: 0, sm: 131071, R: VRSTACK, rn: 0, rm: 16383 }
 
   cvs.width = cvs.height = 256
+
   let imageData = ctx.createImageData(256, 256)
   let buf32 = new Uint32Array(imageData.data.buffer)
 
@@ -33,7 +34,14 @@ J.Console = function() {
   this.tyx = true
 
   // position of the current fragment
-  let x = 0, y = 0
+  let x = 0
+  let y = 0
+
+  let mouseX = 0
+  let mouseY = 0
+  let ctrlKey = 0
+  let altKey = 0
+  let click = 0
 
   this.run = function() {
     raf(this.step)
@@ -43,11 +51,16 @@ J.Console = function() {
     raf(this.step)
 
     let w = this.tyx ? whereami_tyx : whereami_t
+    let U = mouseY << 24
+          | mouseX << 16
+          | click << 15
+          | ctrlKey << 14
+          | altKey << 13
 
     for (y = 0; y < 256; y++) {
       for(x = 0; x < 256; x++) {
         w(video.sn)
-        this.program(video, MEM, w)
+        this.program(video, MEM, w, U)
       }
     }
 
@@ -65,7 +78,7 @@ J.Console = function() {
     video.sn = video.sn + 1 & video.sm
   }
 
-  let coord = v => v - 128 << 8
+  let coord = v => v - 128 << 9
 
   console.log(coord(256).toString(16))
 
@@ -83,6 +96,39 @@ J.Console = function() {
     return video.sn
   }
 
+  // in the future, see if using the Pointer API is worthwhile
+  cvs.addEventListener('mousemove', e => {
+    let x = e.pageX
+    let y = e.pageY
+
+    // substract canvas offset
+    let elem = cvs
+    do {
+      x -= elem.offsetLeft
+      y -= elem.offsetTop
+    } while(elem = elem.offsetParent)
+
+    mouseX = x
+    mouseY = y
+  })
+
+  cvs.addEventListener('mousedown', e => {
+    click = 1
+  })
+
+  cvs.addEventListener('mouseup', e => {
+    click = 0
+  })
+
+  window.addEventListener('keydown', e => {
+    ctrlKey = e.ctrlKey | 0
+    altKey = e.altKey | 0
+  })
+
+  window.addEventListener('keyup', e => {
+    ctrlKey = e.ctrlKey | 0
+    altKey = e.altKey | 0
+  })
 }
 
 // increase/decrease stack pointer
@@ -268,7 +314,7 @@ let codes = {
   // INPUT
 
   // userin: -- inword
-  'U': 'S[sn]=u;' + sincr,
+  'U': 'S[sn]=U;' + sincr,
 }
 
 function eatUntil(state, check) {
@@ -437,7 +483,7 @@ J.compile = function(src) {
 
   state.body += '\n}l=false}o.sn=sn;o.rn=rn'
 
-  return new Function('o', 'M', 'w', state.body)
+  return new Function('o', 'M', 'w', 'U', state.body)
 }
 
 })()
