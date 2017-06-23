@@ -4,10 +4,9 @@
     <meta charset="utf-8">
   </head>
   <body>
-    <script src="jibniz.js"></script>
+    <script src="analysis.js"></script>
     <script>
-      var VM = new jibniz.Console
-      VM.program = jibniz.compile(`
+      let program = jibniz.compile(`
         \\ WORKING PROGRAMS:
         \\ *x~FF&*
         \\ ax8r+3l                 \\ spinning
@@ -35,14 +34,10 @@
         \\ mandelbrot:
         \\ vArs1ldv*vv*0!1-1!0dFX4X1)Lv*vv*-vv2**0@+x1@+4X1)Lv*vv*+4x->?Lpp0:ppRpRE.5*;
       `)
-      document.body.appendChild(VM.domElement)
-
-      VM.tyx = false
-      VM.run()
 
       var pre = document.createElement('pre')
       var output = document.createElement('code')
-      output.appendChild(document.createTextNode(VM.program))
+      output.appendChild(document.createTextNode(program))
       pre.appendChild(output)
       document.body.appendChild(pre)
     </script>
