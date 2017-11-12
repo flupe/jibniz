@@ -10,8 +10,12 @@ let YUVtoHEX = c => {
   return 0xff000000 | y << 16 | y << 8 | y
 }
 
-J.Console = function() {
-  let cvs = this.domElement = document.createElement('canvas')
+J.Console = function(cvs) {
+  if (cvs == undefined) {
+    cvs = document.createElement('canvas')
+  }
+
+  this.domElement = cvs
   let ctx = cvs.getContext('2d')
 
   // memory is accessible via 20-bit wide address
@@ -80,8 +84,6 @@ J.Console = function() {
   }
 
   let coord = v => v - 128 << 9
-
-  console.log(coord(256).toString(16))
 
   let whereami_tyx = (sn) => {
     video.sn = sn

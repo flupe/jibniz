@@ -2,17 +2,49 @@
 <html>
   <head>
     <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css?family=Anonymous+Pro" rel="stylesheet"> 
+    <link href="theme.css" rel="stylesheet">
   </head>
   <body>
+    <section>
+      <canvas id="screen"></canvas>
+      <textarea id="input">v8rsdv*vv*^</textarea>
+      <p>code is recompiled every time you stop typing.</p>
+    </section>
     <script src="jibniz.js"></script>
     <script>
-      var VM = new jibniz.Console
+      const cvs = document.getElementById('screen')
+      const input = document.getElementById('input')
+      const VM  = new jibniz.Console(cvs)
+
+      let debounce = (fn, delay) => {
+        let last = 0
+        let timeout = null
+
+        return (...args) => {
+          let now = performance.now()
+          if (timeout !== null && now < last + delay) {
+            window.clearTimeout(timeout)
+          }
+          last = now
+          timeout = window.setTimeout(_ => {
+            timeout = null
+            fn(...args)
+          }, delay)
+        }
+      }
+
+      input.addEventListener('input', debounce(e => {
+        VM.program = jibniz.compile(input.value)
+      }, 1000))
+
+      /* 
       VM.program = jibniz.compile(`
         \\ WORKING PROGRAMS
         \\ *x~FF&*
         \\ ax8r+3l                 \\ spinning
         \\ ^x7r+                   \\ munching squares
-        v8rsdv*vv*^             \\ xorzoomer
+        \\ v8rsdv*vv*^             \\ xorzoomer
         \\ v8rsdv*vv*^wpp8r-       \\ munching squares zommer
         \\ sxsaxAr+waxBr+^         \\ spinny (from FreeFull)
         \\ ax8r+3lwd*xd*+xp+       \\ spiral
@@ -34,16 +66,11 @@
         \\ mandelbrot:
         \\ vArs1ldv*vv*0!1-1!0dFX4X1)Lv*vv*-vv2**0@+x1@+4X1)Lv*vv*+4x->?Lpp0:ppRpRE.5*;
       `)
-      document.body.appendChild(VM.domElement)
+      */
 
       // VM.tyx = false
+      VM.program = jibniz.compile(input.value)
       VM.run()
-
-      var pre = document.createElement('pre')
-      var output = document.createElement('code')
-      output.appendChild(document.createTextNode(VM.program))
-      pre.appendChild(output)
-      document.body.appendChild(pre)
     </script>
   </body>
 </html>
