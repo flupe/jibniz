@@ -14,8 +14,9 @@ J.Console = function() {
   let cvs = this.domElement = document.createElement('canvas')
   let ctx = cvs.getContext('2d')
 
-  let MEM     = new Int32Array(1048576)
-  let USRDATA = new Int32Array(MEM.buffer, 0, 786432)
+  // memory is accessible via 20-bit wide address
+  let MEM     = new Int32Array(1 << 20)
+  let USRDATA = new Int32Array(MEM.buffer, 0, 0xC0000)
   let ARSTACK = new Int32Array(MEM.buffer, 102400, 16384)
   let VRSTACK = new Int32Array(MEM.buffer, 104448, 16384)
   let ASTACK  = new Int32Array(MEM.buffer, 106496, 65536)
@@ -37,11 +38,11 @@ J.Console = function() {
   let x = 0
   let y = 0
 
-  let mouseX = 0
-  let mouseY = 0
+  let mouseX  = 0
+  let mouseY  = 0
   let ctrlKey = 0
-  let altKey = 0
-  let click = 0
+  let altKey  = 0
+  let click   = 0
 
   this.run = function() {
     raf(this.step)
@@ -51,11 +52,11 @@ J.Console = function() {
     raf(this.step)
 
     let w = this.tyx ? whereami_tyx : whereami_t
-    let U = mouseY << 24
-          | mouseX << 16
-          | click << 15
+    let U = mouseY  << 24
+          | mouseX  << 16
+          | click   << 15
           | ctrlKey << 14
-          | altKey << 13
+          | altKey  << 13
 
     for (y = 0; y < 256; y++) {
       for(x = 0; x < 256; x++) {
@@ -122,12 +123,12 @@ J.Console = function() {
 
   window.addEventListener('keydown', e => {
     ctrlKey = e.ctrlKey | 0
-    altKey = e.altKey | 0
+    altKey = e.altKey   | 0
   })
 
   window.addEventListener('keyup', e => {
     ctrlKey = e.ctrlKey | 0
-    altKey = e.altKey | 0
+    altKey = e.altKey   | 0
   })
 }
 
