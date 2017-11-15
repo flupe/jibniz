@@ -4,8 +4,10 @@
     <meta charset="utf-8">
   </head>
   <body>
-    <script src="analysis.js"></script>
+    <script src="jibniz.js"></script>
     <script>
+      const VM  = new jibniz.Console
+
       let program = jibniz.compile(`
         \\ WORKING PROGRAMS:
         \\ *x~FF&*
@@ -18,12 +20,11 @@
         \\ ax8r+3lwd*xd*+q1x/x9r+^ \\ xor tunnel
 
         \\ USER INTERACTION
-        \\ .FFFF&
         \\ U10r.FFFF&
         \\ -dd*x8ld*+
 
         \\ xd~U10r^v7r^
-        pU
+        \\ pU
 
         \\ AUDIOMODE PROGRAMS
         \\ d3r15&*
@@ -37,9 +38,15 @@
 
       var pre = document.createElement('pre')
       var output = document.createElement('code')
+
       output.appendChild(document.createTextNode(program))
       pre.appendChild(output)
+
+      document.body.appendChild(VM.domElement)
       document.body.appendChild(pre)
+      // VM.tyx = false
+      VM.program = program
+      VM.run()
     </script>
   </body>
 </html>
