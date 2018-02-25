@@ -344,10 +344,12 @@ function next(state) {
     return
   }
 
-  state.body += '\ncase ' + (state.inst++) + ':'
+  state.body.push(0x02, 0x40, 0x01, 0x0b)
+
+  return;
 
   if (codes[c]) {
-    state.body += codes[c]
+
   }
 
   else if (isHexaDecimal(c) || c == '.') {
@@ -467,26 +469,66 @@ function next(state) {
                   + rincr
     }
   }
+
+  // end instruction block
 }
 
 J.compile = function(src) {
+  let bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]
+  let mem
+
+  // 1. TYPES
+  bc.push(1)
+  let types = [
+    // void -> void
+    [0x60, 0, 0]
+  ]
+  mem = [types.length].concat(...types)
+  bc.push(mem.length, ...mem)
+
+
+  // 2. IMPORTS
+
+
+  // 3. FUNCTIONS
+  bc.push(3)
+  let functions = [0]
+  mem = [functions.length].concat(functions)
+  bc.push(mem.length, ...mem)
+
+
+  // 4. TABLE
+  // 5. MEMORY
+  // 6. GLOBALS
+  // 7. EXPORTS
+  // 8. START
+  // 9. ELEMENT
+
+  // 10. CODE
+  bc.push(10)
+
+  let codes = []
+
   let state = {
     src,
     pos:  0,
     inst: 0,
     len:  src.length,
-    body: '',
+    body: [],
   }
-
-  state.body += 'let l=true,i=0,{S,R,sm,rm,sn,rn}=o,a,b,c,d;'
-  state.body += 'while(l){switch(i){'
 
   while (state.pos < state.len)
     next(state)
 
-  state.body += '\n}l=false}o.sn=sn;o.rn=rn'
+  codes.push([0, ...state.body, 0x0b])
+  codes.forEach(code => code.unshift(code.length))
+  mem = [codes.length].concat(...codes)
+  bc.push(mem.length, ...mem)
 
-  return new Function('o', 'M', 'w', 'U', state.body)
+  // 11. DATA
+
+  console.log(...bc)
+  return WebAssembly.instantiate(new Uint8Array(bc), {})
 }
 
 })()
