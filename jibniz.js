@@ -1,23 +1,6 @@
-(function() {
-'use strict'
-
-let raf = window.requestAnimationFrame
 let J = window.jibniz = {}
 
-// VVUU.YYYY
-let YUVtoHEX = c => {
-  let y = c >> 8 & 0xff
-  return 0xff000000 | y << 16 | y << 8 | y
-}
-
-J.Console = function(cvs) {
-  if (cvs == undefined) {
-    cvs = document.createElement('canvas')
-  }
-
-  this.domElement = cvs
-  let ctx = cvs.getContext('2d')
-
+J.Console = function() {
   // memory is accessible via 20-bit wide address
   let MEM     = new Int32Array(1 << 20)
   let USRDATA = new Int32Array(MEM.buffer, 0, 0xC0000)
@@ -28,296 +11,56 @@ J.Console = function(cvs) {
 
   let audio = { S: ASTACK, sn: 0, sm:  65535, R: ARSTACK, rn: 0, rm: 16383 }
   let video = { S: VSTACK, sn: 0, sm: 131071, R: VRSTACK, rn: 0, rm: 16383 }
-
-  cvs.width = cvs.height = 256
-
-  let imageData = ctx.createImageData(256, 256)
-  let buf32 = new Uint32Array(imageData.data.buffer)
-
-  this.time = 0
-  // for now, by default and until we do proper mode detection
-  this.tyx = true
-
-  // position of the current fragment
-  let x = 0
-  let y = 0
-
-  let mouseX  = 0
-  let mouseY  = 0
-  let ctrlKey = 0
-  let altKey  = 0
-  let click   = 0
-
-  this.run = function() {
-    raf(this.step)
-  }
-
-  this.step = function() {
-    raf(this.step)
-
-    let w = this.tyx ? whereami_tyx : whereami_t
-    let U = mouseY  << 24
-          | mouseX  << 16
-          | click   << 15
-          | ctrlKey << 14
-          | altKey  << 13
-
-    for (y = 0; y < 256; y++) {
-      for(x = 0; x < 256; x++) {
-        w(video.sn)
-        this.program(video, MEM, w, U)
-      }
-    }
-
-    let offset = video.sn < 65536 ? 65536 : 0
-    for (let i = 65536; i--;)
-      buf32[i] = YUVtoHEX(VSTACK[offset + i])
-
-    ctx.putImageData(imageData, 0, 0)
-    this.time++
-  }.bind(this)
-
-  // tmp: to be deleted
-  function push(x) {
-    VSTACK[video.sn] = x
-    video.sn = video.sn + 1 & video.sm
-  }
-
-  let coord = v => v - 128 << 9
-
-  let whereami_tyx = (sn) => {
-    video.sn = sn
-    push(this.time << 16)
-    push(coord(y))
-    push(coord(x))
-    return video.sn
-  }
-
-  let whereami_t = (sn) => {
-    video.sn = sn
-    push(this.time << 16 | y << 8 | x)
-    return video.sn
-  }
-
-  // in the future, see if using the Pointer API is worthwhile
-  cvs.addEventListener('mousemove', e => {
-    let x = e.pageX
-    let y = e.pageY
-
-    // substract canvas offset
-    let elem = cvs
-    do {
-      x -= elem.offsetLeft
-      y -= elem.offsetTop
-    } while(elem = elem.offsetParent)
-
-    mouseX = x
-    mouseY = y
-  })
-
-  cvs.addEventListener('mousedown', e => {
-    click = 1
-  })
-
-  cvs.addEventListener('mouseup', e => {
-    click = 0
-  })
-
-  window.addEventListener('keydown', e => {
-    ctrlKey = e.ctrlKey | 0
-    altKey = e.altKey   | 0
-  })
-
-  window.addEventListener('keyup', e => {
-    ctrlKey = e.ctrlKey | 0
-    altKey = e.altKey   | 0
-  })
 }
 
-// increase/decrease stack pointer
-let sincr = 'sn=sn+1&sm;'
-let sdecr = 'sn=sn+sm&sm;'
+// get stack pointer
 
-// increase/decrease ret pointer
-let rincr = 'rn=rn+1&rm;'
-let rdecr = 'rn=rn+rm&rm;'
+function LEB128(v) {
+  let e = [], b
+  while (true) {
+    b = v & 255
+    v >>= 7
+    if (v) {
+      b |= 128
+      e.push(b)
+    }
+    else {
+      e.push(b)
+      return e
+    }
+  }
+}
 
 let codes = {
+  '+': [],
+  '-': [],
+  '*': [],
+  '/': [],
+  '%': [],
+  'q': [],
 
-  // ARITHMETIC
+  '&': [],
+  '|': [],
+  '^': [],
+  'r': [],
+  'l': [],
+  '~': [],
 
-  '+': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]+S[sn];',
+  's': [],
+  'a': [],
 
-  '-': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]-S[sn];',
+  '<': [],
+  '>': [],
+  '=': [],
 
-  '*': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=(S[a]/65536)*(S[sn]/65536)*65536|0;',
+  'd': [],
+  'p': [],
+  'x': [],
+  'v': [],
+  ')': [],
+  '(': [],
 
-  '/': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[sn]==0?0:(S[a]*65536)/S[sn];',
-
-  '%': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[sn]==0?0:S[a]%S[sn];',
-
-  // square root
-  'q': 'a=sn+sm&sm;'
-     + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536|0:0;',
-
-  '&': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]&S[sn];',
-
-  '|': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]|S[sn];',
-
-  '^': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]^S[sn];',
-
-  // rotate shift
-  'r': sdecr
-     + 'a=sn+sm&sm;'
-     + 'b=S[sn]>>>16;'
-     + 'c=S[a];'
-     + 'S[a]=(c>>>b)|(c<<(16-c));',
-
-  'l': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=S[a]<<(S[sn]>>>16);',
-
-  '~': 'a=sn+sm&sm;'
-     + 'S[a]=~S[a];',
-
-  // sin
-  's': 'a=sn+sm&sm;'
-     + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
-
-  // atan
-  'a': sdecr
-     + 'a=sn+sm&sm;'
-     + 'S[a]=Math.atan2(S[sn]/65536,S[a]/65536)/Math.PI*32768;',
-
-  '<': 'a=sn+sm&sm;'
-     + 'if(S[a]>0)S[a]=0;',
-
-  '>': 'a=sn+sm&sm;'
-     + 'if(S[a]<0)S[a]=0;',
-
-  '=': 'a=sn+sm&sm;'
-     + 'S[a]=(S[a]==0)<<16;',
-
-
-  // STACK MANIPULATION
-
-  // dup: a -- a a
-  'd': 'S[sn]=S[sn+sm&sm];'
-     + sincr,
-
-  // pop: a --
-  'p': sdecr,
-
-  // exchange: a b -- b a
-  'x': 'a=sn+sm&sm;'
-     + 'b=a+sm&sm;'
-     + 'c=S[a];S[a]=S[b];S[b]=c;',
-
-  // trirot: a b c -- b c a
-  'v': 'a=sn+sm&sm;'
-     + 'b=a+sm&sm;'
-     + 'c=b+sm&sm;'
-     + 'd=S[a];S[a]=S[c];S[c]=S[b];S[b]=d;',
-
-  // pick: i -- val
-  // TODO: wrap within stack range
-  ')': 'a=sn+sm&sm;'
-     + 'S[a]=S[a+sm+1-(S[a]>>16)&sm];',
-
-  // bury: val i --
-  '(': sdecr
-     + 'a=S[sn]>>16;'
-     + sdecr
-     + 'S[sn+sm-a&sm]=S[sn];',
-
-  // EXTERIOR LOOP
-
-  // M: mediaswitch
-
-  // whereami
-  'w': 'sn=w(sn);',
-
-  // terminate
-  'T': 'break;',
-
-
-  // MEMORY MANIPULATION
-
-  // load: addr -- val
-  '@': 'a=sn+sm&sm;'
-     + 'b=S[a];'
-     + 'S[a]=M[(b>>>16)|((b&0xf)<<16)];',
-
-  // store: val addr --
-  '!': 'b=S[sn=sn+sm&sm];'
-     + 'a=S[sn=sn+sm&sm];'
-     + 'M[(b>>>16)|((b&0xf)<<16)]=a;',
-
-  // PROGRAM CONTROL
-
-  // Conditional Execution
-
-  // if, else, endif
-  // TODO: take care of this at parsing
-  //       i.e. finding end of scopes
-
-  // Loops
-  // loop
-  'L': 'a=--R[rn+(rm<<1)&rm];'
-     + 'if(a!=0){i=R[rn+rm&rm];continue}'
-     + 'else ' + rdecr,
-
-  // index: -- i
-  'i': 'S[sn]=R[rn+(rm<<1)&rm];' + sincr,
-
-  // outdex: -- j
-  'j': 'S[sn]=R[rn+(rm<<2)&rm];' + sincr,
-
-  // while: cond --
-  ']': sdecr
-     + 'if(S[sn]!=0){i=R[rn+rm&rm];continue}'
-     + 'else ' + rdecr,
-
-  // jump: v --
-  'J': sdecr
-     + 'i=S[sn];continue;',
-
-  // Subroutines
-  // return
-  '}': rdecr
-     + 'i=R[rn];continue;',
-
-  // Return stack manipulation
-  // retaddr: -- val | val --
-  'R': rdecr
-     + 'S[sn]=R[rb];'
-     + sincr,
-
-  // pushtors: val -- | -- val
-  'P': sdecr
-     + 'R[rn]=S[sn];'
-     + rincr,
-
-  // INPUT
-
-  // userin: -- inword
-  'U': 'S[sn]=U;' + sincr,
+  'T': [],
 }
 
 function eatUntil(state, check) {
@@ -344,7 +87,19 @@ function next(state) {
     return
   }
 
-  state.body.push(0x02, 0x40, 0x01, 0x0b)
+  if (codes[c]) {
+    if (state.instrs.has(c)) {
+      state.instrs.get(c).count++
+    }
+    else {
+      state.instrs.set(c, {
+        code: codes[c],
+        count: 1
+      })
+    }
+  }
+  else
+    // state.body.push(0x02, 0x40, 0x01, 0x0b)
 
   return;
 
@@ -475,60 +230,77 @@ function next(state) {
 
 J.compile = function(src) {
   let bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]
-  let mem
 
   // 1. TYPES
   bc.push(1)
-  let types = [
-    // void -> void
-    [0x60, 0, 0]
-  ]
-  mem = [types.length].concat(...types)
-  bc.push(mem.length, ...mem)
-
+  bc.push(4)
+  bc.push(1, 0x60, 0, 0) // void -> void
 
   // 2. IMPORTS
-
-
   // 3. FUNCTIONS
   bc.push(3)
-  let functions = [0]
-  mem = [functions.length].concat(functions)
-  bc.push(mem.length, ...mem)
-
+  bc.push(3)
+  bc.push(2, 0, 0)
 
   // 4. TABLE
   // 5. MEMORY
+  bc.push(5)
+  bc.push(3)
+  // 4 pages needed to store a 256x256 words vector
+  bc.push(1, 0x00, 4)
+
   // 6. GLOBALS
+  bc.push(6)
+  bc.push(6)
+  bc.push(1)
+  bc.push(0x7f, 0x01)    // mutable i32 stack pointer
+  bc.push(0x41, 0, 0x0b) // initialized to 0
+
   // 7. EXPORTS
+  bc.push(7)
+  bc.push(22)
+  bc.push(3)
+  bc.push(3, 0x6d, 0x65, 0x6d) // mem
+  bc.push(0x02, 0)
+  bc.push(4, 0x73, 0x74, 0x65, 0x70) // step
+  bc.push(0x00, 0)
+  bc.push(5, 0x72, 0x65, 0x73, 0x65, 0x74) // reset
+  bc.push(0x00, 1)
+
   // 8. START
   // 9. ELEMENT
-
   // 10. CODE
   bc.push(10)
 
-  let codes = []
+  let codes = [
+    [0, 0x01, 0x0b],
+    [0, 0x01, 0x0b]
+  ]
+
+  let code = codes.reduce((acc, code) => {
+    acc.push(...LEB128(code.length), ...code)
+    return acc
+  }, [codes.length])
+
+  bc.push(...LEB128(code.length), ...code)
 
   let state = {
     src,
     pos:  0,
     inst: 0,
     len:  src.length,
-    body: [],
+    instrs: new Map(),
   }
 
   while (state.pos < state.len)
     next(state)
 
-  codes.push([0, ...state.body, 0x0b])
-  codes.forEach(code => code.unshift(code.length))
-  mem = [codes.length].concat(...codes)
-  bc.push(mem.length, ...mem)
+  let body = []
+
+  // bc.push(body.length + 4, 1, body.length + 2, 0, ...body, 0x0b)
 
   // 11. DATA
 
-  console.log(...bc)
+  console.log(bc.length)
   return WebAssembly.instantiate(new Uint8Array(bc), {})
 }
-
-})()

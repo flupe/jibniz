@@ -2,14 +2,27 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link href="https://fonts.googleapis.com/css?family=Anonymous+Pro" rel="stylesheet"> 
-    <link href="theme.css" rel="stylesheet">
   </head>
   <body>
     <script src="jibniz.js"></script>
     <script>
       jibniz.compile('^x7r-')
-        .then(program => console.log(program))
+        .then(program => {
+          // console.log(program)
+          const cvs = document.createElement('canvas')
+          const ctx = cvs.getContext('2d')
+
+          cvs.width = cvs.height = 256
+          document.body.appendChild(cvs)
+
+          const data = new ImageData(256, 256)
+          const buf32 = new Uint32Array(data.data.buffer)
+          const mem32 = new Uint32Array(program.instance.exports.mem.buffer)
+
+          buf32.set(mem32)
+
+          ctx.putImageData(data, 0, 0)
+        })
     </script>
   </body>
 </html>
