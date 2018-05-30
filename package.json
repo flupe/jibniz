@@ -1,0 +1,14 @@
+{
+  "name": "jibniz",
+  "version": "1.0.0",
+  "repository": "https://github.com/flupe/jibniz",
+  "scripts": {
+    "test": "jest tests"
+  },
+  "devDependencies": {
+    "babel-core": "^6.26.3",
+    "babel-jest": "^23.0.1",
+    "babel-preset-env": "^1.7.0",
+    "jest": "^23.0.1"
+  }
+}
