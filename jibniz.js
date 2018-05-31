@@ -27,13 +27,25 @@
       this.top = 0
     }
 
-    push(x) {
-      this.memory[this.top] = x
-      this.top = this.top + 1 & this.mask
+    push(...values) {
+      values.forEach(x => {
+        this.memory[this.top] = x
+        this.top = this.top + 1 & this.mask
+      })
     }
 
     pop(x) {
       return this.memory[this.top = this.top + this.mask & this.mask]
+    }
+
+    peek(n) {
+      let r = []
+      let p = this.top
+      while (n--) {
+        p = p + this.mask & this.mask
+        r.push(this.memory[p])
+      }
+      return r
     }
 
     reset() {
