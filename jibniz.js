@@ -143,22 +143,41 @@
 
     run() {
       this.running = true
+      let start = performance.now()
+      let last = start
+
+      this.ctx.font = '18px monospace'
+      this.ctx.fillStyle = '#fff'
+      this.ctx.textBaseline = 'top'
 
       let step = () => {
         window.requestAnimationFrame(step)
+        let now = performance.now()
+        let elapsed = now - start
+        let dt = (now - last) / 1000
+        let fps = (1 / dt) | 0
+        let time = elapsed / 1000 * 60 & 0xffff
 
+        // enforce continuous timestep
+        this.VM.time = time
         this.VM.step()
 
         // TODO(flupe): make this prettier maybe?
         let offset = ((this.VM.vStack.top >> 16) ^ 1) << 16
 
+        let mem = this.VM.vStack.memory
+        let buf = this.buffer
+
         this.buffer.forEach((_, k) => {
-          let v = this.VM.vStack.memory[k + offset]
+          let v = mem[k + offset]
           let cy = (v >>> 8) & 255
-          this.buffer[k] = 0xff000000 | cy << 16 | cy << 8 | cy
+          buf[k] = 0xff000000 | cy << 16 | cy << 8 | cy
         })
 
         this.ctx.putImageData(this.imageData, 0, 0)
+        this.ctx.fillText(fps, 4, 4)
+
+        last = now
       }
 
       window.requestAnimationFrame(step)
@@ -249,9 +268,6 @@
     '=': 'a=sn+sm&sm;'
        + 'S[a]=(S[a]==0)<<16;',
 
-
-    // STACK MANIPULATION
-
     'd': 'S[sn]=S[sn+sm&sm];'
        + sincr,
 
@@ -266,21 +282,14 @@
        + 'c=b+sm&sm;'
        + 'd=S[a];S[a]=S[c];S[c]=S[b];S[b]=d;',
 
-    // pick: i -- val
-    // TODO: wrap within stack range
     ')': 'a=sn+sm&sm;'
        + 'S[a]=S[a+sm-(S[a]>>>16)&sm];',
 
-    // bury: val i --
     '(': sdecr
        + 'a=S[sn]>>16;'
        + sdecr
        + 'S[sn+sm-a&sm]=S[sn];',
 
-    // EXTERIOR LOOP
-
-    // M: mediaswitch
-    // w: whereami
     'w': 'S[sn]=t;'
        + 'S[sn=sn+1&sm]=y;'
        + 'S[sn=sn+1&sm]=x;'
@@ -348,15 +357,7 @@
        + 'R[rn]=S[sn];'
        + rincr,
 
-    // INPUT
-
-    // userin: -- inword
     // 'U': 'S[sn]=U;' + sincr,
-  }
-
-  function eatUntil(state, check) {
-    while(state.pos < state.len && !check(state.src[state.pos]))
-      next(state)
   }
 
   let isHexaDecimal = c => {
@@ -364,162 +365,115 @@
                      || c == 'D' || c == 'E' || c == 'F'
   }
 
-  let isBlank = c => c == ' ' || c == ',' || c == ';' || c == '\n'
+  let isBlank = c => c == ' ' || c == ',' || c == '\n'
 
-  function next(state) {
-    let c = state.src[state.pos++]
+  function tokenize(src) {
+    let pos  = 0
+    let len  = src.length
+    let body = []
+    let c
 
-    if (isBlank(c))
-      return
+    while(pos < len) {
+      c = src[pos++]
 
-    // comments
-    if (c == '\\') {
-      while (state.pos < state.len && state.src[state.pos++] != '\n') {}
-      return
-    }
+      if (isBlank(c))
+        continue
 
-    state.body += '\ncase ' + (state.inst++) + ':'
-
-    if (codes[c]) {
-      state.body += codes[c]
-    }
-
-    else if (isHexaDecimal(c) || c == '.') {
-      let imm = 0
-
-      if (c != '.') {
-        imm = parseInt(c, 16)
-
-        while (state.pos < state.len && isHexaDecimal(state.src[state.pos]))
-          imm = ((imm & 0xffff) << 4) | parseInt(state.src[state.pos++], 16)
-
-        imm <<= 16
-        c = state.src[state.pos]
-        if (c == '.') state.pos++
+      if (c == '\\') {
+        while (pos < len && src[pos++] != '\n') {}
+        continue
       }
 
-      if (c == '.') {
-        let i = 4, frac = 0
+      else if (isHexaDecimal(c) || c == '.') {
+        let imm = 0
 
-        for (;i > 0 && isHexaDecimal(state.src[state.pos]); i--)
-          frac = frac << 4 | parseInt(state.src[state.pos++], 16) 
+        if (c != '.') {
+          imm = parseInt(c, 16)
 
-        // we ignore the trailing fraction
-        while (state.pos < state.len && isHexaDecimal(state.src[state.pos]))
-          state.pos++
+          while (pos < len && isHexaDecimal(src[pos]))
+            imm = (imm & 0xffff) << 4 | parseInt(src[pos++], 16)
 
-        imm |= (frac << (i << 2))
+          imm <<= 16
+          c = src[pos]
+
+          if (c == '.') pos++
+        }
+
+        if (c == '.') {
+          let i = 4, frac = 0
+
+          for (;i > 0 && isHexaDecimal(src[pos]); i--)
+            frac = frac << 4 | parseInt(src[pos++], 16) 
+
+          while (pos < len && isHexaDecimal(src[pos]))
+            pos++
+
+          imm |= frac << (i << 2)
+        }
+
+        body.push(imm)
       }
 
-      state.body += 'S[sn]=' + imm + ';' + sincr;
+      // TODO(flupe): parse $ data
+      else if (c == '$') {
+        break
+      }
+
+      else {
+        // TODO(flupe): eventually warn if there is an unknown token?
+        body.push({ op: c, pos: pos - 1 })
+      }
     }
 
-    else {
+    return body
+  }
+
+  function parse(src) {
+    let tokens = tokenize(src)
+    let len = tokens.length
+
+    // find skip points
+    for (let i = 0; i < len; i++) {
+      let t = tokens[i]
+
+      if (typeof t == 'number')
+        continue
+
+      let c = t.op
+      let seek0 = null
+      let seek1 = null
+
       if (c == '?') {
-        let subs = {
-          src:  state.src,
-          pos:  state.pos,
-          inst: state.inst,
-          len:  state.len,
-          body: '',
-        }
+        seek0 = ':'
+        seek1 = ';'
+      }
 
-        while (subs.pos < subs.len &&
-               subs.src[subs.pos] != ':' &&
-               subs.src[subs.pos] != ';') {
-          next(subs)
-        }
+      if (c == ':') { seek0 = ';' }
+      if (c == '{') { seek0 = '}' }
 
-        // EOF is the end of scope
-        if (subs.pos >= subs.len) {
-          state.body += sdecr
-                     + 'if(S[sn]==0)break;'
-                     + subs.body
-        }
-
-        else {
-          state.body += sdecr
-                     + 'if(S[sn]==0){i=' + subs.inst + ';continue};'
-                     + subs.body
-
-          if (subs.src[subs.pos] == ':') {
-
-            subs.pos++
-            subs.body = ''
-
-            while (subs.pos < subs.len &&
-                   subs.src[subs.pos] != ';' ) {
-              next(subs)
-            }
-
-            state.body += 'i=' + subs.inst + ';continue;'
-                       + subs.body
+      if (seek0) {
+        for (let j = i + 1; j < len; j++) {
+          let c = tokens[j]
+          if (typeof c != 'number' && (c.op == seek0 || c.op == seek1)) {
+            t.skip = j + 1
+            break
           }
         }
-
-        state.inst = subs.inst
-        state.pos  = subs.pos
-      }
-
-      else if (c == '{') {
-        let subs = {
-          src:  state.src,
-          pos:  state.pos,
-          inst: state.inst,
-          len:  state.len,
-          body: '',
-        }
-
-        while (subs.pos < subs.len && subs.src[subs.pos] != '}') {
-          next(subs)
-        }
-
-        if (subs.pos < subs.len)
-          next(subs)
-
-        state.body += sdecr
-                    + 'M[S[sn]>>16]=' + state.inst + ';'
-                    + 'i=' + subs.inst + ';continue;'
-
-        state.pos = subs.pos
-        state.body += subs.body
-        state.inst = subs.inst
-      }
-
-      else if (c == 'V') {
-        state.body += sdecr
-                    + 'i=M[S[sn]>>16];'
-                    + 'R[rn]=' + state.inst + ';'
-                    + rincr
-                    + 'continue;'
-      }
-
-      else if (c == 'X') {
-        state.body += sdecr
-                    + 'a=S[sn];'
-                    + 'R[rn]=(a>>>16)|(a<<16);'
-                    + rincr
-                    + 'R[rn]=' + state.inst + ';'
-                    + rincr
-      }
-
-      else if (c == '[') {
-        state.body += 'R[rn]=' + state.inst + ';'
-                    + rincr
       }
     }
+
+    let code = codegen(tokens)
+
+    return code
   }
 
   function compile(src) {
-    let state = {
-      src,
-      pos:  0,
-      inst: 0,
-      len:  src.length,
-      body: '',
-    }
+    let code = parse(src)
+    return new Function('M', 'VS', 'RS', 't', 'x', 'y', code)
+  }
 
-    state.body += `
+  function codegen(tokens) {
+    let body = `
       let l=true,
           i=0,
           S=VS.memory,
@@ -532,17 +486,80 @@
        while(l) {
          switch(i) {`
 
-    while (state.pos < state.len)
-      next(state)
+    let len = tokens.length
 
-    state.body += `
+    let instructions = tokens.map((tok, k) => {
+      let sub = `\ncase ${k}:`
+
+      if (typeof tok == 'number')
+        sub += 'S[sn]=' + tok + ';' + sincr
+
+      else if (codes[tok.op])
+        sub += codes[tok.op]
+
+      else if (tok.op == '?') {
+        if (!tok.skip) 
+          sub += sdecr
+              + 'if(S[sn]==0)break;'
+        else
+          sub += sdecr
+              + `if(S[sn]==0){i=${tok.skip};continue};`
+      }
+
+      else if (tok.op == ':') {
+        if (!tok.skip) 
+          sub = 'break;' + sub
+        else
+          sub = `i=${tok.skip};continue;` + sub
+      }
+
+      else if (tok.op == '{') {
+        if (!tok.skip)
+          sub += sdecr
+              + 'M[S[sn]>>16]=' + (k + 1) + ';break;'
+        else
+          sub += sdecr
+              + 'M[S[sn]>>16]=' + (k + 1) + ';'
+              + `i=${tok.skip};continue;`
+      }
+
+      else if (tok.op == 'V') {
+        sub += sdecr
+            + 'i=M[S[sn]>>16];'
+            + `R[rn]=${k + 1};`
+            + rincr
+            + 'continue;'
+      }
+
+      else if (tok.op == 'X') {
+        sub += sdecr
+            + 'a=S[sn];'
+            + 'R[rn]=(a>>>16)|(a<<16);'
+            + rincr
+            + 'R[rn]=' + (k + 1) + ';'
+            + rincr
+      }
+
+      else if (tok.op == '[') {
+        sub += 'R[rn]=' + (k + 1) + ';'
+            + rincr
+      }
+
+      else return ''
+
+      return sub
+    })
+
+    body += instructions.join('')
+
+    body += `
          }
          break
        }
        VS.top=sn
        RS.top=rn`
 
-    return new Function('M', 'VS', 'RS', 't', 'x', 'y', state.body)
+    return body
   }
 
   return { Stack, VM, Program, Console }

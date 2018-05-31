@@ -47,6 +47,14 @@ test('Pick instruction', () => {
 })
 
 
+test('Duplicate the stack 3 times', () => {
+  let prog = new jibniz.Program('4X1)L')
+  vs.push(0, 5, 3)
+  vm.runOnce(prog)
+  expect(vs.peek(7)).toEqual([3, 5, 3, 5, 3, 5, 0])
+})
+
+
 test('Bury instruction', () => {
   let prog = new jibniz.Program('(')
   vs.push(5, 0)
