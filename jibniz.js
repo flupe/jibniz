@@ -22,8 +22,8 @@
 
     constructor(buffer, offset, size) {
       this.buffer = buffer
-      this.memory = new Int32Array(buffer, offset, size)
-      this.mask = size - 1 
+      this.memory = new Int32Array(buffer, offset << 2, size)
+      this.mask = size - 1
       this.top = 0
     }
 
@@ -72,8 +72,11 @@
 
       this.memory  = new Uint32Array(1 << 20)
       let buffer = this.buffer = this.memory.buffer
-      this.vRStack = new Stack(buffer,  104448,   16384)
-      this.vStack  = new Stack(buffer,  114688,  131072)
+
+      this.aRStack = new Stack(buffer,  0xC8000,    0x4000)
+      this.vRStack = new Stack(buffer,  0xCC000,    0x4000)
+      this.aStack  = new Stack(buffer,  0xD0000,    0x1000)
+      this.vStack  = new Stack(buffer,  0xE0000,   0x20000)
 
       this.time = 0
       this.program = null
@@ -469,7 +472,7 @@
                     + 'M[S[sn]>>16]=' + state.inst + ';'
                     + 'i=' + subs.inst + ';continue;'
 
-        state.pos = subs.pos + 1
+        state.pos = subs.pos
         state.body += subs.body
         state.inst = subs.inst
       }
@@ -525,7 +528,7 @@
 
     state.body += `
          }
-         l=false
+         break
        }
        VS.top=sn
        RS.top=rn`
