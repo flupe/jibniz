@@ -2,41 +2,14 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link href="https://fonts.googleapis.com/css?family=Anonymous+Pro" rel="stylesheet"> 
     <link href="theme.css" rel="stylesheet">
+    <title>jibniz</title>
   </head>
   <body>
-    <section>
-      <canvas id="screen"></canvas>
-      <textarea id="input">v8rsdv*vv*^</textarea>
-      <p>code is recompiled every time you stop typing.</p>
-    </section>
     <script src="jibniz.js"></script>
     <script>
-      const cvs = document.getElementById('screen')
-      const input = document.getElementById('input')
-      const VM  = new jibniz.Console(cvs)
-
-      let debounce = (fn, delay) => {
-        let last = 0
-        let timeout = null
-
-        return (...args) => {
-          let now = performance.now()
-          if (timeout !== null && now < last + delay) {
-            window.clearTimeout(timeout)
-          }
-          last = now
-          timeout = window.setTimeout(_ => {
-            timeout = null
-            fn(...args)
-          }, delay)
-        }
-      }
-
-      input.addEventListener('input', debounce(e => {
-        VM.program = jibniz.compile(input.value)
-      }, 1000))
+      const IBNIZ = new jibniz.Console
+      document.body.appendChild(IBNIZ.domElement)
 
       /* 
       VM.program = jibniz.compile(`
@@ -69,8 +42,10 @@
       */
 
       // VM.tyx = false
-      VM.program = jibniz.compile(input.value)
-      VM.run()
+      // IBNIZ.VM.program = new jibniz.Program('sxsax9r+')
+      IBNIZ.VM.program = new jibniz.Program('sv5rvs--')
+      // IBNIZ.VM.program = new jibniz.Program('v8rds4X3)Lx~2Xv*vv*+i!L1@2@&')
+      IBNIZ.run()
     </script>
   </body>
 </html>

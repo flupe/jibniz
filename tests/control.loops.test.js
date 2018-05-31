@@ -53,3 +53,21 @@ test('Nested loops using outdex', () => {
   vm.runOnce(prog)
   expect(vs.peek(7)).toEqual([1, 1, 1, 2, 2, 2, 0])
 })
+
+
+test('Do loop initialization', () => {
+  let prog = new jibniz.Program('[')
+  vr.push(7)
+  vm.runOnce(prog)
+  expect(vr.peek(2)).toEqual([1, 7])
+})
+
+
+test('Simple do loop', () => {
+  let prog = new jibniz.Program('.0003[d.0001-d]')
+  vs.push(5)
+  vr.push(7)
+  vm.runOnce(prog)
+  expect(vs.peek(5)).toEqual([0, 1, 2, 3, 5])
+  expect(vr.pop()).toBe(7)
+})

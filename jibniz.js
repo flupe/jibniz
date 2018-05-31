@@ -90,8 +90,10 @@
 
     reset() {
       this.memory.fill(0)
+      this.vStack.reset()
+      this.vRStack.reset()
       this.time = 0
-      this.program = null
+      // this.program = null
     }
 
     step() {
@@ -105,11 +107,8 @@
 
       for (let y = 0; y < 256; y++) {
         for(let x = 0; x < 256; x++) {
-          // for now, only TYX mode
-          this.vStack.push(t << 16)
-          this.vStack.push(coord(y))
-          this.vStack.push(coord(x))
-
+          // TODO(flupe): handle both T and TYX modes
+          this.vStack.push(this.time << 16, coord(y), coord(x))
           f(this.memory, this.vStack, this.vRStack)
         }
       }
@@ -120,6 +119,43 @@
     runOnce(program) {
       let f = program.fragment
       f(this.memory, this.vStack, this.vRStack)
+    }
+
+  }
+
+
+  class Console {
+
+    constructor() {
+      let cvs = this.domElement = document.createElement('canvas')
+      let ctx = this.ctx = cvs.getContext('2d')
+
+      cvs.width = cvs.height = 256
+
+      this.imageData = this.ctx.createImageData(256, 256)
+      this.buffer = new Uint32Array(this.imageData.data.buffer)
+      this.running = false
+      this.VM = new VM
+    }
+
+    run() {
+      this.running = true
+
+      let step = () => {
+        window.requestAnimationFrame(step)
+
+        this.VM.step()
+
+        this.buffer.forEach((_, k) => {
+          let v = this.VM.vStack.memory[k]
+          let cy = (v >>> 8) & 255
+          this.buffer[k] = 0xff000000 | cy << 16 | cy << 8 | cy
+        })
+
+        this.ctx.putImageData(this.imageData, 0, 0)
+      }
+
+      window.requestAnimationFrame(step)
     }
 
   }
@@ -143,7 +179,6 @@
 
   let codes = {
 
-    // ARITHMETIC
     '+': sdecr
        + 'a=sn+sm&sm;'
        + 'S[a]=S[a]+S[sn];',
@@ -164,7 +199,6 @@
        + 'a=sn+sm&sm;'
        + 'S[a]=S[sn]==0?0:S[a]%S[sn];',
 
-    // square root
     'q': 'a=sn+sm&sm;'
        + 'S[a]=S[a]>0?Math.sqrt(S[a]/65536)*65536|0:0;',
 
@@ -180,7 +214,6 @@
        + 'a=sn+sm&sm;'
        + 'S[a]=S[a]^S[sn];',
 
-    // rotate shift
     'r': sdecr
        + 'a=sn+sm&sm;'
        + 'b=S[sn]>>>16;'
@@ -194,11 +227,9 @@
     '~': 'a=sn+sm&sm;'
        + 'S[a]=~S[a];',
 
-    // sin
     's': 'a=sn+sm&sm;'
        + 'S[a]=Math.sin(S[a]*Math.PI/32768)*65536;',
 
-    // atan
     'a': sdecr
        + 'a=sn+sm&sm;'
        + 'S[a]=Math.atan2(S[a]/65536,S[sn]/65536)/Math.PI*32768;',
@@ -215,19 +246,15 @@
 
     // STACK MANIPULATION
 
-    // dup: a -- a a
     'd': 'S[sn]=S[sn+sm&sm];'
        + sincr,
 
-    // pop: a --
     'p': sdecr,
 
-    // exchange: a b -- b a
     'x': 'a=sn+sm&sm;'
        + 'b=a+sm&sm;'
        + 'c=S[a];S[a]=S[b];S[b]=c;',
 
-    // trirot: a b c -- b c a
     'v': 'a=sn+sm&sm;'
        + 'b=a+sm&sm;'
        + 'c=b+sm&sm;'
@@ -247,11 +274,8 @@
     // EXTERIOR LOOP
 
     // M: mediaswitch
+    // w: whereami
 
-    // whereami
-    // 'w': 'sn=w(sn);',
-
-    // terminate
     'T': 'break;',
 
 
@@ -260,12 +284,12 @@
     // load: addr -- val
     '@': 'a=sn+sm&sm;'
        + 'b=S[a];'
-       + 'S[a]=M[(b>>>16)|((b&0xf)<<16)];',
+       + 'S[a]=M[(b>>>16)|((b&0xF)<<16)];',
 
     // store: val addr --
     '!': 'b=S[sn=sn+sm&sm];'
        + 'a=S[sn=sn+sm&sm];'
-       + 'M[(b>>>16)|((b&0xf)<<16)]=a;',
+       + 'M[(b>>>16)|((b&0xF)<<16)]=a;',
 
     // PROGRAM CONTROL
 
@@ -398,23 +422,29 @@
         if (subs.pos >= subs.len) {
           state.body += sdecr
                      + 'if(S[sn]==0)break;'
+                     + subs.body
         }
 
         else {
           state.body += sdecr
                      + 'if(S[sn]==0){i=' + subs.inst + ';continue};'
+                     + subs.body
 
-          // else
           if (subs.src[subs.pos] == ':') {
+
             subs.pos++
+            subs.body = ''
+
             while (subs.pos < subs.len &&
                    subs.src[subs.pos] != ';' ) {
               next(subs)
             }
+
+            state.body += 'i=' + subs.inst + ';continue;'
+                       + subs.body
           }
         }
 
-        state.body += subs.body
         state.inst = subs.inst
         state.pos  = subs.pos
       }
@@ -503,6 +533,6 @@
     return new Function('M', 'VS', 'RS', state.body)
   }
 
-  return { Stack, VM, Program }
+  return { Stack, VM, Program, Console }
 
 }))
