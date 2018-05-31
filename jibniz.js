@@ -279,7 +279,7 @@
     // loop
     'L': 'a=--R[rn+(rm<<1)&rm];'
        + 'if(a!=0){i=R[rn+rm&rm];continue}'
-       + 'else ' + rdecr,
+       + 'else ' + rdecr + rdecr,
 
     // index: -- i
     'i': 'S[sn]=R[rn+(rm<<1)&rm];' + sincr,
@@ -454,7 +454,8 @@
 
       else if (c == 'X') {
         state.body += sdecr
-                    + 'R[rn]=S[sn];'
+                    + 'a=S[sn];'
+                    + 'R[rn]=(a>>>16)|(a<<16);'
                     + rincr
                     + 'R[rn]=' + state.inst + ';'
                     + rincr
