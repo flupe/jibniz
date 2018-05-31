@@ -31,3 +31,11 @@ test('Visit subroutine', () => {
   vm.runOnce(prog)
   expect(vs.peek(4)).toEqual([0x30000, 0x20000, 0x10000, 7])
 })
+
+
+test('Visit multiple subroutines', () => {
+  let prog = new jibniz.Program('0{2}1{3}1,0V1V4')
+  vs.push(7)
+  vm.runOnce(prog)
+  expect(vs.peek(5)).toEqual([0x40000, 0x30000, 0x20000, 0x10000, 7])
+})

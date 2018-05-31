@@ -70,7 +70,7 @@
 
       // let audio = this.audioStack = { S: ASTACK, sn: 0, sm:  65535, R: ARSTACK, rn: 0, rm: 16383 }
 
-      this.memory  = new Uint32Array(1 << 20)
+      this.memory  = new Int32Array(1 << 20)
       let buffer = this.buffer = this.memory.buffer
 
       this.aRStack = new Stack(buffer,  0xC8000,    0x4000)
@@ -112,7 +112,7 @@
         for(let x = 0; x < 256; x++) {
           // TODO(flupe): handle both T and TYX modes
           this.vStack.push(this.time << 16, coord(y), coord(x))
-          f(this.memory, this.vStack, this.vRStack)
+          f(this.memory, this.vStack, this.vRStack, this.time << 16, coord(x), coord(y))
         }
       }
 
@@ -149,13 +149,21 @@
 
         this.VM.step()
 
+        // TODO(flupe): make this prettier maybe?
+        let offset = ((this.VM.vStack.top >> 16) ^ 1) << 16
+
         this.buffer.forEach((_, k) => {
-          let v = this.VM.vStack.memory[k]
+          let v = this.VM.vStack.memory[k + offset]
           let cy = (v >>> 8) & 255
           this.buffer[k] = 0xff000000 | cy << 16 | cy << 8 | cy
         })
 
+        this.ctx.textBaseline = 'top'
+        this.ctx.fillStyle = '#fff'
+        this.ctx.globalCompositeOperation = 'difference'
+        this.ctx.font = '18px monospace'
         this.ctx.putImageData(this.imageData, 0, 0)
+        this.ctx.fillText(('00000000' + this.VM.time.toString(16)).substr(-8).toUpperCase(), 4, 4)
       }
 
       window.requestAnimationFrame(step)
@@ -278,6 +286,10 @@
 
     // M: mediaswitch
     // w: whereami
+    'w': 'S[sn]=t;'
+       + 'S[sn=sn+1&sm]=y;'
+       + 'S[sn=sn+1&sm]=x;'
+       + sincr,
 
     'T': 'break;',
 
@@ -331,7 +343,7 @@
     // Return stack manipulation
     // retaddr: -- val | val --
     'R': rdecr
-       + 'S[sn]=R[rb];'
+       + 'S[sn]=R[rn];'
        + sincr,
 
     // pushtors: val -- | -- val
@@ -382,7 +394,7 @@
         imm = parseInt(c, 16)
 
         while (state.pos < state.len && isHexaDecimal(state.src[state.pos]))
-          imm = imm << 4 | parseInt(state.src[state.pos++], 16)
+          imm = ((imm & 0xffff) << 4) | parseInt(state.src[state.pos++], 16)
 
         imm <<= 16
         c = state.src[state.pos]
@@ -390,16 +402,16 @@
       }
 
       if (c == '.') {
-        let i = 0, frac = 0
+        let i = 4, frac = 0
 
-        for (; i < 4 && isHexaDecimal(state.src[state.pos]); i++)
+        for (;i > 0 && isHexaDecimal(state.src[state.pos]); i--)
           frac = frac << 4 | parseInt(state.src[state.pos++], 16) 
 
-        // we ignore the following decimals
+        // we ignore the trailing fraction
         while (state.pos < state.len && isHexaDecimal(state.src[state.pos]))
           state.pos++
 
-        imm |= (frac << (4 - i))
+        imm |= (frac << (i << 2))
       }
 
       state.body += 'S[sn]=' + imm + ';' + sincr;
@@ -533,7 +545,7 @@
        VS.top=sn
        RS.top=rn`
 
-    return new Function('M', 'VS', 'RS', state.body)
+    return new Function('M', 'VS', 'RS', 't', 'x', 'y', state.body)
   }
 
   return { Stack, VM, Program, Console }
