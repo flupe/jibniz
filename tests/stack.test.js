@@ -1,6 +1,7 @@
 import jibniz from '../jibniz'
 
 const vm = new jibniz.VM
+const vs = vm.vStack
 
 beforeEach(() => vm.reset())
 
@@ -9,61 +10,61 @@ beforeEach(() => vm.reset())
 //              (to be able to test position and such)
 
 test('d', () => {
-  let prog = jibniz.compile('d')
+  let prog = new jibniz.Program('d')
 
-  vm.push(1)
+  vs.push(1)
   vm.runOnce(prog)
-  expect([vm.pop(), vm.pop()]).toEqual([1, 1])
+  expect([vs.pop(), vs.pop()]).toEqual([1, 1])
 })
 
 
 test('p', () => {
-  let prog = jibniz.compile('p')
+  let prog = new jibniz.Program('p')
 
-  vm.push(1)
+  vs.push(1)
   vm.runOnce(prog)
-  expect(vm.pop()).toBe(0)
+  expect(vs.pop()).toBe(0)
 })
 
 
 test('x', () => {
-  let prog = jibniz.compile('x')
+  let prog = new jibniz.Program('x')
 
-  vm.push(1)
-  vm.push(2)
+  vs.push(1)
+  vs.push(2)
   vm.runOnce(prog)
-  expect([vm.pop(), vm.pop()]).toEqual([1, 2])
+  expect([vs.pop(), vs.pop()]).toEqual([1, 2])
 })
 
 
 test('v', () => {
-  let prog = jibniz.compile('v')
+  let prog = new jibniz.Program('v')
 
-  vm.push(1)
-  vm.push(2)
-  vm.push(3)
+  vs.push(1)
+  vs.push(2)
+  vs.push(3)
   vm.runOnce(prog)
-  expect([vm.pop(), vm.pop(), vm.pop()]).toEqual([1, 3, 2])
+  expect([vs.pop(), vs.pop(), vs.pop()]).toEqual([1, 3, 2])
 })
 
 
 test(')', () => {
-  let prog = jibniz.compile(')')
+  let prog = new jibniz.Program(')')
 
-  vm.push(5)
-  vm.push(0)
-  vm.push(0)
-  vm.push(0x20000)
+  vs.push(5)
+  vs.push(0)
+  vs.push(0)
+  vs.push(0x20000)
   vm.runOnce(prog)
-  expect(vm.pop()).toBe(5)
+  expect(vs.pop()).toBe(5)
 })
 
 
 test('(', () => {
-  let prog = jibniz.compile('(')
+  let prog = new jibniz.Program('(')
 
-  vm.push(5)
-  vm.push(0)
+  vs.push(5)
+  vs.push(0)
   vm.runOnce(prog)
-  expect(vm.pop()).toBe(5)
+  expect(vs.pop()).toBe(5)
 })

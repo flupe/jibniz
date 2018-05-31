@@ -9,93 +9,116 @@
 
   'use strict'
 
-  let J = {}
-
   // VVUU.YYYY
   let YUVtoHEX = c => {
     let y = c >> 8 & 0xff
     return 0xff000000 | y << 16 | y << 8 | y
   }
 
-  J.VM = function(cvs) {
-    // UGLY MESS
+  let coord = v => v - 128 << 9
 
-    // memory is accessible via 20-bit wide address
-    let MEM     = this.MEM     = new Int32Array(1 << 20)
-    let USRDATA = this.USRDATA = new Int32Array(MEM.buffer,      0, 0xC0000)
-    let ARSTACK = this.ARSTACK = new Int32Array(MEM.buffer, 102400,   16384)
-    let VRSTACK = this.VRSTACK = new Int32Array(MEM.buffer, 104448,   16384)
-    let ASTACK  = this.ASTACK  = new Int32Array(MEM.buffer, 106496,   65536)
-    let VSTACK  = this.VSTACK  = new Int32Array(MEM.buffer, 114688,  131072)
 
-    let audio = this.audio = { S: ASTACK, sn: 0, sm:  65535, R: ARSTACK, rn: 0, rm: 16383 }
-    let video = this.video = { S: VSTACK, sn: 0, sm: 131071, R: VRSTACK, rn: 0, rm: 16383 }
+  class Stack {
 
-    this.time = 0
-    this.tyx = true
-
-    // position of the current fragment
-    let x = 0
-    let y = 0
-
-    let mouseX  = 0
-    let mouseY  = 0
-    let ctrlKey = 0
-    let altKey  = 0
-    let click   = 0
-
-    this.runOnce = function(program) {
-      program(video, MEM, null, 0)
+    constructor(buffer, offset, size) {
+      this.buffer = buffer
+      this.memory = new Int32Array(buffer, offset, size)
+      this.mask = size - 1 
+      this.top = 0
     }
 
-    this.step = function(program) {
-      let w = this.tyx ? whereami_tyx : whereami_t
-
-      for (y = 0; y < 256; y++) {
-        for(x = 0; x < 256; x++) {
-          w(video.sn)
-          program(video, MEM, w, 0)
-        }
-      }
-
-      let offset = video.sn < 65536 ? 65536 : 0
-
-      this.time++
-    }.bind(this)
-
-    // tmp: to be deleted
-    this.push = function(x) {
-      VSTACK[video.sn] = x
-      video.sn = video.sn + 1 & video.sm
+    push(x) {
+      this.memory[this.top] = x
+      this.top = this.top + 1 & this.mask
     }
 
-    this.pop = function() {
-      video.sn = video.sn + video.sm & video.sm
-      return VSTACK[video.sn]
+    pop(x) {
+      return this.memory[this.top = this.top + this.mask & this.mask]
     }
 
-    let coord = v => v - 128 << 9
-
-    let whereami_tyx = (sn) => {
-      video.sn = sn
-      push(this.time << 16)
-      push(coord(y))
-      push(coord(x))
-      return video.sn
+    reset() {
+      this.top = 0
     }
 
-    let whereami_t = (sn) => {
-      video.sn = sn
-      push(this.time << 16 | y << 8 | x)
-      return video.sn
+    clear() {
+      this.memory.fill(0)
     }
 
   }
 
-  J.VM.prototype.reset = function() {
-    this.MEM.fill(0)
-    this.time = 0
-    this.program = null
+
+  class VM {
+
+    constructor() {
+      // let USRDATA = this.USRDATA = new Int32Array(this.buffer,      0, 0xC0000)
+      // let ARSTACK = this.ARSTACK = new Int32Array(MEM.buffer, 102400,   16384)
+      // let VRSTACK = this.VRSTACK = new Int32Array(MEM.buffer, 104448,   16384)
+      // let ASTACK  = this.ASTACK  = new Int32Array(MEM.buffer, 106496,   65536)
+      // let VSTACK  = this.VSTACK  = new Int32Array(MEM.buffer, 114688,  131072)
+
+      // let audio = this.audioStack = { S: ASTACK, sn: 0, sm:  65535, R: ARSTACK, rn: 0, rm: 16383 }
+
+      this.memory  = new Uint32Array(1 << 20)
+      let buffer = this.buffer = this.memory.buffer
+      this.vRStack = new Stack(buffer,  104448,   16384)
+      this.vStack  = new Stack(buffer,  114688,  131072)
+
+      this.time = 0
+      this.program = null
+
+
+      let whereami_tyx = (sn) => {
+        video.sn = sn
+        push(this.time << 16)
+        push(coord(y))
+        push(coord(x))
+        return video.sn
+      }
+    }
+
+    reset() {
+      this.memory.fill(0)
+      this.time = 0
+      this.program = null
+    }
+
+    step() {
+      let program = this.program
+
+      if (!(program instanceof Program)) {
+        return
+      }
+
+      let f = program.fragment
+
+      for (let y = 0; y < 256; y++) {
+        for(let x = 0; x < 256; x++) {
+          // for now, only TYX mode
+          this.vStack.push(t << 16)
+          this.vStack.push(coord(y))
+          this.vStack.push(coord(x))
+
+          f(this.memory, this.vStack, this.vRStack)
+        }
+      }
+
+      this.time++
+    }
+
+    runOnce(program) {
+      let f = program.fragment
+      f(this.memory, this.vStack, this.vRStack)
+    }
+
+  }
+
+
+  class Program {
+
+    constructor(source) {
+      this.fragment = compile(source)
+    }
+
   }
 
   // increase/decrease stack pointer
@@ -214,7 +237,7 @@
     // M: mediaswitch
 
     // whereami
-    'w': 'sn=w(sn);',
+    // 'w': 'sn=w(sn);',
 
     // terminate
     'T': 'break;',
@@ -280,7 +303,7 @@
     // INPUT
 
     // userin: -- inword
-    'U': 'S[sn]=U;' + sincr,
+    // 'U': 'S[sn]=U;' + sincr,
   }
 
   function eatUntil(state, check) {
@@ -432,7 +455,7 @@
     }
   }
 
-  J.compile = function(src) {
+  function compile(src) {
     let state = {
       src,
       pos:  0,
@@ -441,17 +464,32 @@
       body: '',
     }
 
-    state.body += 'let l=true,i=0,{S,R,sm,rm,sn,rn}=o,a,b,c,d;'
-    state.body += 'while(l){switch(i){'
+    state.body += `
+      let l=true,
+          i=0,
+          S=VS.memory,
+          sm=VS.mask,
+          sn=VS.top,
+          R=RS.memory,
+          rm=RS.mask,
+          rn=RS.top
+
+       while(l) {
+         switch(i) {`
 
     while (state.pos < state.len)
       next(state)
 
-    state.body += '\n}l=false}o.sn=sn;o.rn=rn'
+    state.body += `
+         }
+         l=false
+       }
+       VS.top=sn
+       RS.top=rn`
 
-    return new Function('o', 'M', 'w', 'U', state.body)
+    return new Function('M', 'VS', 'RS', state.body)
   }
 
-  return J
+  return { Stack, VM, Program }
 
 }))

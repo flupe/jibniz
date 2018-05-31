@@ -9,22 +9,22 @@ beforeEach(() => vm.reset())
 //    here we assume the JS runtime uses 32-bits integers
 //    fix that.
 function testOp(prog, a, b) {
-  vm.push(a)
+  vm.vStack.push(a)
   vm.runOnce(prog)
-  expect(vm.pop()).toBe(b | 0)
+  expect(vm.vStack.pop()).toBe(b | 0)
 }
 
 
 function testBinOp(prog, a, b, c) {
-  vm.push(a)
-  vm.push(b)
+  vm.vStack.push(a)
+  vm.vStack.push(b)
   vm.runOnce(prog)
-  expect(vm.pop()).toBe(c | 0)
+  expect(vm.vStack.pop()).toBe(c | 0)
 }
 
 
 test('+', () => {
-  let prog = jibniz.compile('+')
+  let prog = new jibniz.Program('+')
 
   testBinOp(prog,  0, 0, 0)
   testBinOp(prog,  1, 1, 2)
@@ -33,7 +33,7 @@ test('+', () => {
 
 
 test('-', () => {
-  let prog = jibniz.compile('-')
+  let prog = new jibniz.Program('-')
 
   testBinOp(prog, 0, 0,  0)
   testBinOp(prog, 1, 1,  0)
@@ -42,7 +42,7 @@ test('-', () => {
 
 
 test('*', () => {
-  let prog = jibniz.compile('*')
+  let prog = new jibniz.Program('*')
 
   // 2 bytes of fraction
   // XXXX.XXXX
@@ -54,7 +54,7 @@ test('*', () => {
 
 
 test('/', () => {
-  let prog = jibniz.compile('/')
+  let prog = new jibniz.Program('/')
 
   testBinOp(prog, 0x10000,  0x10000,  0x10000)
   testBinOp(prog, 0x40000,  0x20000,  0x20000)
@@ -66,7 +66,7 @@ test('/', () => {
 
 
 test('%', () => {
-  let prog = jibniz.compile('%')
+  let prog = new jibniz.Program('%')
 
   testBinOp(prog, 17, 2, 1)
   testBinOp(prog, -12, 5, -2)
@@ -76,7 +76,7 @@ test('%', () => {
 
 
 test('q', () => {
-  let prog = jibniz.compile('q')
+  let prog = new jibniz.Program('q')
 
   testOp(prog,  0x40000, 0x20000)
   testOp(prog, 0x190000, 0x50000)
@@ -86,7 +86,7 @@ test('q', () => {
 
 
 test('&', () => {
-  let prog = jibniz.compile('&')
+  let prog = new jibniz.Program('&')
 
   testBinOp(prog, 0, 0, 0)
   testBinOp(prog, 1, 0, 0)
@@ -96,7 +96,7 @@ test('&', () => {
 
 
 test('|', () => {
-  let prog = jibniz.compile('|')
+  let prog = new jibniz.Program('|')
 
   testBinOp(prog, 0, 0, 0)
   testBinOp(prog, 1, 0, 1)
@@ -106,7 +106,7 @@ test('|', () => {
 
 
 test('^', () => {
-  let prog = jibniz.compile('^')
+  let prog = new jibniz.Program('^')
 
   testBinOp(prog, 0, 0, 0)
   testBinOp(prog, 1, 0, 1)
@@ -116,7 +116,7 @@ test('^', () => {
 
 
 test('r', () => {
-  let prog = jibniz.compile('r')
+  let prog = new jibniz.Program('r')
 
   testBinOp(prog, 0, 0, 0)
   testBinOp(prog, 25, 0, 25)
@@ -127,7 +127,7 @@ test('r', () => {
 
 
 test('l', () => {
-  let prog = jibniz.compile('l')
+  let prog = new jibniz.Program('l')
 
   testBinOp(prog, 0, 0, 0)
   testBinOp(prog, 25, 0, 25)
@@ -137,7 +137,7 @@ test('l', () => {
 
 
 test('~', () => {
-  let prog = jibniz.compile('~')
+  let prog = new jibniz.Program('~')
 
   testOp(prog, 0, 0xFFFFFFFF)
   testOp(prog, 1, 0xFFFFFFFE)
@@ -145,7 +145,7 @@ test('~', () => {
 
 
 test('s', () => {
-  let prog = jibniz.compile('s')
+  let prog = new jibniz.Program('s')
 
   testOp(prog, 0, 0)
   testOp(prog,  0x8000, 0)
@@ -157,7 +157,7 @@ test('s', () => {
 
 
 test('a', () => {
-  let prog = jibniz.compile('a')
+  let prog = new jibniz.Program('a')
 
   testBinOp(prog, 0x10000, 0, 0x4000)
   testBinOp(prog, -0x10000, 0, -0x4000)
@@ -167,7 +167,7 @@ test('a', () => {
 
 
 test('<', () => {
-  let prog = jibniz.compile('<')
+  let prog = new jibniz.Program('<')
 
   testOp(prog, -1, -1)
   testOp(prog, -0xFF, -0xFF)
@@ -178,7 +178,7 @@ test('<', () => {
 
 
 test('>', () => {
-  let prog = jibniz.compile('>')
+  let prog = new jibniz.Program('>')
 
   testOp(prog, -1, 0)
   testOp(prog, -0xFF, 0)
@@ -189,7 +189,7 @@ test('>', () => {
 
 
 test('=', () => {
-  let prog = jibniz.compile('=')
+  let prog = new jibniz.Program('=')
 
   testOp(prog, -1, 0)
   testOp(prog, -0xFF, 0)
