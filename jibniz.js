@@ -158,12 +158,7 @@
           this.buffer[k] = 0xff000000 | cy << 16 | cy << 8 | cy
         })
 
-        this.ctx.textBaseline = 'top'
-        this.ctx.fillStyle = '#fff'
-        this.ctx.globalCompositeOperation = 'difference'
-        this.ctx.font = '18px monospace'
         this.ctx.putImageData(this.imageData, 0, 0)
-        this.ctx.fillText(('00000000' + this.VM.time.toString(16)).substr(-8).toUpperCase(), 4, 4)
       }
 
       window.requestAnimationFrame(step)
@@ -299,12 +294,12 @@
     // load: addr -- val
     '@': 'a=sn+sm&sm;'
        + 'b=S[a];'
-       + 'S[a]=M[(b>>>16)|((b&0xF)<<16)];',
+       + 'S[a]=M[(b>>>16)|(b<<16)];',
 
     // store: val addr --
     '!': 'b=S[sn=sn+sm&sm];'
        + 'a=S[sn=sn+sm&sm];'
-       + 'M[(b>>>16)|((b&0xF)<<16)]=a;',
+       + 'M[(b>>>16)|(b<<16)]=a;',
 
     // PROGRAM CONTROL
 
@@ -321,10 +316,12 @@
        + 'else ' + rdecr + rdecr,
 
     // index: -- i
-    'i': 'S[sn]=R[rn+(rm<<1)&rm];' + sincr,
+    'i': 'a=R[rn+(rm<<1)&rm];'
+       + 'S[sn]=(a>>>16)|(a<<16);' + sincr,
 
     // outdex: -- j
-    'j': 'S[sn]=R[rn+(rm<<2)&rm];' + sincr,
+    'j': 'a=R[rn+(rm<<2)&rm];'
+       + 'S[sn]=(a>>>16)|(a<<16);' + sincr,
 
     // while: cond --
     ']': sdecr

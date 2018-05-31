@@ -9,44 +9,31 @@
     <script src="jibniz.js"></script>
     <script>
       const IBNIZ = new jibniz.Console
+
       document.body.appendChild(IBNIZ.domElement)
-
-      /* 
-      VM.program = jibniz.compile(`
-        \\ WORKING PROGRAMS
-        \\ *x~FF&*
-        \\ ax8r+3l                 \\ spinning
-        \\ ^x7r+                   \\ munching squares
-        \\ v8rsdv*vv*^             \\ xorzoomer
-        \\ v8rsdv*vv*^wpp8r-       \\ munching squares zommer
-        \\ sxsaxAr+waxBr+^         \\ spinny (from FreeFull)
-        \\ ax8r+3lwd*xd*+xp+       \\ spiral
-        \\ ax8r+3lwd*xd*+q1x/x9r+^ \\ xor tunnel
-
-        \\ USER INTERACTION
-        \\ U10r.FFFF&
-        \\ -dd*x8ld*+
-
-        \\ xd~U10r^v7r^
-        \\ pU
-
-        \\ AUDIOMODE PROGRAMS
-        \\ d3r15&*
-        \\ dd6r*3r&
-
-        \\ NEVER TERMINATING PROGRAMS:
-        \\ v8rds4X3)Lx~2Xv*vv*+i!L1@2@&
-        \\ mandelbrot:
-        \\ vArs1ldv*vv*0!1-1!0dFX4X1)Lv*vv*-vv2**0@+x1@+4X1)Lv*vv*+4x->?Lpp0:ppRpRE.5*;
-      `)
-      */
-
-      // VM.tyx = false
       // IBNIZ.VM.program = new jibniz.Program('sxsax9r+')
       // IBNIZ.VM.program = new jibniz.Program('sv5rvs--')
       // IBNIZ.VM.program = new jibniz.Program('ax8r+3lwd*xd*+q1x/x9r+^')
       // IBNIZ.VM.program = new jibniz.Program('v8rds4X3)Lx~2Xv*vv*+i@L1!2!&')
-      IBNIZ.VM.program = new jibniz.Program('v8rsdv*vv*^wpp8r-')
+
+      IBNIZ.VM.program = new jibniz.Program(`
+          \\ ** \\ textire zoomer
+          \\ +% \\ jupiter storm
+          \\ &*
+          \\ /% 
+
+          \\ v8rsdv*vv*^wpp8r-
+          \\ ax8r+3lwd*xd*+q1x/x9r+^
+
+           6{^^ddd***1%}
+           5{v8rsdv*vv*^wpp8r-}
+           4{v8rds4X3)Lx~2Xv*vv*+i!L1@2@^}
+           3{ax8r+3lwd*xd*+q1x/x9r+^}
+           2)6r3&3+V
+
+          \\ vArs1ldv*vv*0!1-1!0dFX4X1)Lv*vv*-vv2**0@+x1@+4X1)Lv*vv*+4x->?Lpp0:ppRpRE.5*;
+      `)
+
       IBNIZ.run()
     </script>
   </body>

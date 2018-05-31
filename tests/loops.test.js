@@ -28,7 +28,7 @@ test('Times loop with index', () => {
   let prog = new jibniz.Program('4XiL')
   vs.push(0)
   vm.runOnce(prog)
-  expect(vs.peek(5)).toEqual([1, 2, 3, 4, 0])
+  expect(vs.peek(5)).toEqual([0x10000, 0x20000, 0x30000, 0x40000, 0])
 })
 
 
@@ -43,7 +43,7 @@ test('Nested loops using index', () => {
   let prog = new jibniz.Program('2X3XiLL')
   vs.push(0)
   vm.runOnce(prog)
-  expect(vs.peek(7)).toEqual([1, 2, 3, 1, 2, 3, 0])
+  expect(vs.peek(7)).toEqual([0x10000, 0x20000, 0x30000, 0x10000, 0x20000, 0x30000, 0])
 })
 
 
@@ -51,7 +51,7 @@ test('Nested loops using outdex', () => {
   let prog = new jibniz.Program('2X3XjLL')
   vs.push(0)
   vm.runOnce(prog)
-  expect(vs.peek(7)).toEqual([1, 1, 1, 2, 2, 2, 0])
+  expect(vs.peek(7)).toEqual([0x10000, 0x10000, 0x10000, 0x20000, 0x20000, 0x20000, 0])
 })
 
 
@@ -64,10 +64,10 @@ test('Do loop initialization', () => {
 
 
 test('Simple do loop', () => {
-  let prog = new jibniz.Program('.0003[d.0001-d]')
+  let prog = new jibniz.Program('.0003[d.0001-d]9')
   vs.push(5)
   vr.push(7)
   vm.runOnce(prog)
-  expect(vs.peek(5)).toEqual([0, 1, 2, 3, 5])
+  expect(vs.peek(6)).toEqual([0x90000, 0, 1, 2, 3, 5])
   expect(vr.pop()).toBe(7)
 })
