@@ -1,22 +1,24 @@
-* {
+body {
+  width: 100%;
+  margin: 0;
+  padding: 0;
   font-family: 'Anonymous Pro', monospace;
   color: #fff;
   background: #000;
 }
 
-body {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  color: #fff;
-}
-
 section {
-  width: 256px;
-  margin: 100px auto 0;
+  margin: 100px 0 0;
 }
 
 section canvas {
+  display: block;
+  margin: 0 auto;
+}
+
+section select {
+  margin: 16px auto 0;
+  width: 256px;
   display: block;
 }
 
@@ -25,10 +27,10 @@ section textarea {
   outline: none;
   border: 2px solid rgba(256, 256, 256, .3);
   border-radius: 2px;
-  width: 100%;
+  width: 256px;
   box-sizing: border-box;
   padding: 4px 8px;
-  margin: 16px 0 0;
+  margin: 16px auto 0;
   resize: vertical;
   min-height: 100px;
 }
@@ -37,15 +39,24 @@ section textarea.error {
   border-color: rgba(256, 70, 10, .7);
 }
 
-p {
-  margin: 16px 0 0;
+pre {
+  margin: 16px auto 0;
   font-size: 14px;
-  opacity: .5;
+  color: #555;
   cursor: default;
+  text-align: left;
+  display: inline-block;
 }
 
-p:hover {
-  opacity: .7;
+div {
+  text-align: center;
 }
 
+a {
+  color: #666;
+  text-decoration: none;
+}
 
+a:hover {
+  text-decoration: underline;
+}

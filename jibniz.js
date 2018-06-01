@@ -9,12 +9,6 @@
 
   'use strict'
 
-  // VVUU.YYYY
-  let YUVtoHEX = c => {
-    let y = c >> 8 & 0xff
-    return 0xff000000 | y << 16 | y << 8 | y
-  }
-
   let coord = v => v - 128 << 9
 
 
@@ -62,15 +56,8 @@
   class VM {
 
     constructor() {
-      // let USRDATA = this.USRDATA = new Int32Array(this.buffer,      0, 0xC0000)
-      // let ARSTACK = this.ARSTACK = new Int32Array(MEM.buffer, 102400,   16384)
-      // let VRSTACK = this.VRSTACK = new Int32Array(MEM.buffer, 104448,   16384)
-      // let ASTACK  = this.ASTACK  = new Int32Array(MEM.buffer, 106496,   65536)
-      // let VSTACK  = this.VSTACK  = new Int32Array(MEM.buffer, 114688,  131072)
-
-      // let audio = this.audioStack = { S: ASTACK, sn: 0, sm:  65535, R: ARSTACK, rn: 0, rm: 16383 }
-
       this.memory  = new Int32Array(1 << 20)
+
       let buffer = this.buffer = this.memory.buffer
 
       this.aRStack = new Stack(buffer,  0xC8000,    0x4000)
@@ -80,15 +67,6 @@
 
       this.time = 0
       this.program = null
-
-
-      let whereami_tyx = (sn) => {
-        video.sn = sn
-        push(this.time << 16)
-        push(coord(y))
-        push(coord(x))
-        return video.sn
-      }
     }
 
     reset() {
@@ -96,15 +74,10 @@
       this.vStack.reset()
       this.vRStack.reset()
       this.time = 0
-      // this.program = null
     }
 
-    step() {
+    step(userin = 0) {
       let program = this.program
-
-      if (!(program instanceof Program)) {
-        return
-      }
 
       let f = program.fragment
 
@@ -112,7 +85,7 @@
         for(let x = 0; x < 256; x++) {
           // TODO(flupe): handle both T and TYX modes
           this.vStack.push(this.time << 16, coord(y), coord(x))
-          f(this.memory, this.vStack, this.vRStack, this.time << 16, coord(x), coord(y))
+          f(this.memory, this.vStack, this.vRStack, this.time << 16, coord(x), coord(y), userin)
         }
       }
 
@@ -129,8 +102,8 @@
 
   class Console {
 
-    constructor() {
-      let cvs = this.domElement = document.createElement('canvas')
+    constructor(cvs) {
+      cvs = this.domElement = cvs || document.createElement('canvas')
       let ctx = this.ctx = cvs.getContext('2d')
 
       cvs.width = cvs.height = 256
@@ -139,12 +112,30 @@
       this.buffer = new Uint32Array(this.imageData.data.buffer)
       this.running = false
       this.VM = new VM
+
+      this.x = 128
+      this.y = 128
+
+      this.domElement.addEventListener('mousemove', e => {
+        let x = e.pageX
+        let y = e.pageY
+        let elem = this.domElement
+
+        do {
+          x -= elem.offsetLeft
+          y -= elem.offsetTop
+        }
+        while(elem = elem.offsetParent)
+
+        this.x = x
+        this.y = y
+      })
     }
 
     run() {
       this.running = true
-      let start = performance.now()
-      let last = start
+      this.start = performance.now()
+      let last = this.start
 
       this.ctx.font = '18px monospace'
       this.ctx.fillStyle = '#fff'
@@ -152,35 +143,44 @@
 
       let step = () => {
         window.requestAnimationFrame(step)
+
         let now = performance.now()
-        let elapsed = now - start
+        let elapsed = now - this.start
         let dt = (now - last) / 1000
-        let fps = (1 / dt) | 0
-        let time = elapsed / 1000 * 60 & 0xffff
-
-        // enforce continuous timestep
-        this.VM.time = time
-        this.VM.step()
-
-        // TODO(flupe): make this prettier maybe?
-        let offset = ((this.VM.vStack.top >> 16) ^ 1) << 16
-
-        let mem = this.VM.vStack.memory
-        let buf = this.buffer
-
-        this.buffer.forEach((_, k) => {
-          let v = mem[k + offset]
-          let cy = (v >>> 8) & 255
-          buf[k] = 0xff000000 | cy << 16 | cy << 8 | cy
-        })
-
-        this.ctx.putImageData(this.imageData, 0, 0)
-        this.ctx.fillText(fps, 4, 4)
 
         last = now
+
+        this.fps = (1 / dt) | 0
+        this.time = elapsed / 1000 * 60 & 0xffff
+        this.step()
       }
 
       window.requestAnimationFrame(step)
+    }
+
+    step() {
+      this.VM.time = this.time
+      this.VM.step(this.y << 8 | this.x)
+
+      // TODO(flupe): make this prettier maybe?
+      let offset = ((this.VM.vStack.top >> 16) ^ 1) << 16
+
+      let mem = this.VM.vStack.memory
+      let buf = this.buffer
+
+      this.buffer.forEach((_, k) => {
+        let v = mem[k + offset]
+        let cy = (v >>> 8) & 255
+        buf[k] = 0xff000000 | cy << 16 | cy << 8 | cy
+      })
+
+      this.ctx.putImageData(this.imageData, 0, 0)
+
+    }
+
+    reset() {
+      this.start = performance.now()
+      this.VM.reset()
     }
 
   }
@@ -297,67 +297,43 @@
 
     'T': 'break;',
 
-
-    // MEMORY MANIPULATION
-
-    // load: addr -- val
     '@': 'a=sn+sm&sm;'
        + 'b=S[a];'
        + 'S[a]=M[(b>>>16)|(b<<16)];',
 
-    // store: val addr --
     '!': 'b=S[sn=sn+sm&sm];'
        + 'a=S[sn=sn+sm&sm];'
        + 'M[(b>>>16)|(b<<16)]=a;',
 
-    // PROGRAM CONTROL
-
-    // Conditional Execution
-
-    // if, else, endif
-    // TODO: take care of this at parsing
-    //       i.e. finding end of scopes
-
-    // Loops
-    // loop
     'L': 'a=--R[rn+(rm<<1)&rm];'
        + 'if(a!=0){i=R[rn+rm&rm];continue}'
        + 'else ' + rdecr + rdecr,
 
-    // index: -- i
     'i': 'a=R[rn+(rm<<1)&rm];'
        + 'S[sn]=(a>>>16)|(a<<16);' + sincr,
 
-    // outdex: -- j
     'j': 'a=R[rn+(rm<<2)&rm];'
        + 'S[sn]=(a>>>16)|(a<<16);' + sincr,
 
-    // while: cond --
     ']': sdecr
        + 'if(S[sn]!=0){i=R[rn+rm&rm];continue}'
        + 'else ' + rdecr,
 
-    // jump: v --
     'J': sdecr
        + 'i=S[sn];continue;',
 
-    // Subroutines
-    // return
     '}': rdecr
        + 'i=R[rn];continue;',
 
-    // Return stack manipulation
-    // retaddr: -- val | val --
     'R': rdecr
        + 'S[sn]=R[rn];'
        + sincr,
 
-    // pushtors: val -- | -- val
     'P': sdecr
        + 'R[rn]=S[sn];'
        + rincr,
 
-    // 'U': 'S[sn]=U;' + sincr,
+    'U': 'S[sn]=U;' + sincr,
   }
 
   let isHexaDecimal = c => {
@@ -469,7 +445,7 @@
 
   function compile(src) {
     let code = parse(src)
-    return new Function('M', 'VS', 'RS', 't', 'x', 'y', code)
+    return new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', code)
   }
 
   function codegen(tokens) {
