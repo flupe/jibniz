@@ -111,6 +111,7 @@
       this.imageData = this.ctx.createImageData(256, 256)
       this.buffer = new Uint32Array(this.imageData.data.buffer)
       this.running = false
+      this.time = 0
       this.VM = new VM
 
       this.x = 128
@@ -134,28 +135,34 @@
 
     run() {
       this.running = true
-      this.start = performance.now()
-      let last = this.start
+      let start = performance.now()
+      let last = start
 
       this.ctx.font = '18px monospace'
       this.ctx.fillStyle = '#fff'
       this.ctx.textBaseline = 'top'
 
       let step = () => {
+        if (!this.running)
+          return
+
         window.requestAnimationFrame(step)
 
         let now = performance.now()
-        let elapsed = now - this.start
         let dt = (now - last) / 1000
 
         last = now
 
         this.fps = (1 / dt) | 0
-        this.time = elapsed / 1000 * 60 & 0xffff
+        this.time += dt * 60 & 0xffff
         this.step()
       }
 
       window.requestAnimationFrame(step)
+    }
+
+    pause() {
+      this.running = false
     }
 
     step() {
@@ -179,7 +186,7 @@
     }
 
     reset() {
-      this.start = performance.now()
+      this.time = 0
       this.VM.reset()
     }
 

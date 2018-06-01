@@ -57,6 +57,21 @@ a {
   text-decoration: none;
 }
 
+i, label {
+  color: #666;
+  font-style: normal;
+  cursor: pointer;
+}
+
+i:hover, label:hover {
+  color: #aaa;
+}
+
+input[type="radio"] { display: none; }
+input[type="radio"]:checked+label {
+  color: #ccc;
+}
+
 a:hover {
   text-decoration: underline;
 }
