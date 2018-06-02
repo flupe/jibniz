@@ -159,10 +159,10 @@ test('s', () => {
 test('a', () => {
   let prog = new jibniz.Program('a')
 
-  testBinOp(prog, 0x10000, 0, 0x4000)
-  testBinOp(prog, -0x10000, 0, -0x4000)
-  testBinOp(prog, 0, 0x10000, 0)
-  testBinOp(prog, 0, -0x10000, 0X8000)
+  testBinOp(prog, 0, 0x10000, 0x4000)
+  testBinOp(prog, 0, -0x10000, -0x4000)
+  testBinOp(prog, 0x10000, 0, 0)
+  testBinOp(prog, -0x10000, 0, 0X8000)
 })
 
 

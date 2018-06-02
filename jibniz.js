@@ -104,18 +104,103 @@
 
     constructor(cvs) {
       cvs = this.domElement = cvs || document.createElement('canvas')
-      let ctx = this.ctx = cvs.getContext('2d')
-
       cvs.width = cvs.height = 256
 
-      this.imageData = this.ctx.createImageData(256, 256)
-      this.buffer = new Uint32Array(this.imageData.data.buffer)
       this.running = false
       this.time = 0
       this.VM = new VM
 
+      this.videoPages = [
+        new Uint8Array(this.VM.buffer, 0xE0000 << 2, 0x40000),
+        new Uint8Array(this.VM.buffer, 0xF0000 << 2, 0x40000),
+      ]
+
       this.x = 128
       this.y = 128
+
+      let gl = this.gl = cvs.getContext('webgl')
+
+      function loadShader(src, type) {
+        let shader = gl.createShader(type)
+        gl.shaderSource(shader, src)
+        gl.compileShader(shader)
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          let error = `Error occured while compiling shader: ${gl.getShaderInfoLog(shader)}`
+          gl.deleteShader(shader)
+          throw error
+        }
+
+        return shader
+      }
+
+      let vertSrc = `
+        attribute vec2 pos;
+        varying lowp vec2 uv;
+
+        void main() {
+          gl_Position = vec4(pos, 0.0, 1.0);
+          uv = vec2((pos.x + 1.0) / 2.0, (1.0 - pos.y) / 2.0);
+        }
+      `
+
+      let fragSrc = `
+        precision lowp float;
+
+        varying lowp vec2 uv;
+        uniform sampler2D page;
+
+        void main() {
+          vec4 tex = texture2D(page, uv);
+          float y = tex.g;
+          float u = tex.b <= 0.5 ? tex.b : -(1.0 - tex.b);
+          float v = tex.a <= 0.5 ? tex.a : -(1.0 - tex.a);
+
+          y = 1.1643 * (y - 0.0625);
+
+          float r = clamp(y+1.5958*v, 0.0, 1.0);
+          float g = clamp(y-0.39173*u-0.81290*v,0.0, 1.0);
+          float b = clamp(y+2.017*u, 0.0, 1.0);
+
+          gl_FragColor = vec4(r,g,b,1.0);
+        }
+      `
+
+      let vert = loadShader(vertSrc, gl.VERTEX_SHADER)
+      let frag = loadShader(fragSrc, gl.FRAGMENT_SHADER)
+
+      let prog = this.program = gl.createProgram()
+
+      gl.attachShader(prog, vert)
+      gl.attachShader(prog, frag)
+      gl.linkProgram(prog)
+
+      let posAttribLoc = gl.getAttribLocation(prog, 'pos')
+      let positions = gl.createBuffer()
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, positions);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+          1.0,  1.0,
+         -1.0,  1.0,
+          1.0, -1.0,
+         -1.0, -1.0,
+      ]), gl.STATIC_DRAW)
+
+      gl.vertexAttribPointer(posAttribLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.enableVertexAttribArray(posAttribLoc)
+
+      let tex = this.texture = gl.createTexture()
+      let texLoc = gl.getUniformLocation(prog, 'page')
+
+      gl.bindTexture(gl.TEXTURE_2D, tex)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+      gl.useProgram(prog)
+      gl.uniform1i(texLoc, 0)
+
 
       this.domElement.addEventListener('mousemove', e => {
         let x = e.pageX
@@ -137,10 +222,6 @@
       this.running = true
       let start = performance.now()
       let last = start
-
-      this.ctx.font = '18px monospace'
-      this.ctx.fillStyle = '#fff'
-      this.ctx.textBaseline = 'top'
 
       let step = () => {
         if (!this.running)
@@ -169,20 +250,13 @@
       this.VM.time = this.time
       this.VM.step(this.y << 8 | this.x)
 
-      // TODO(flupe): make this prettier maybe?
-      let offset = ((this.VM.vStack.top >> 16) ^ 1) << 16
+      let video = this.videoPages[(this.VM.vStack.top >> 16) ^ 1]
 
-      let mem = this.VM.vStack.memory
-      let buf = this.buffer
+      let gl = this.gl
 
-      this.buffer.forEach((_, k) => {
-        let v = mem[k + offset]
-        let cy = (v >>> 8) & 255
-        buf[k] = 0xff000000 | cy << 16 | cy << 8 | cy
-      })
-
-      this.ctx.putImageData(this.imageData, 0, 0)
-
+      gl.bindTexture(gl.TEXTURE_2D, this.texture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, video)
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
     }
 
     reset() {
@@ -201,11 +275,9 @@
 
   }
 
-  // increase/decrease stack pointer
   let sincr = 'sn=sn+1&sm;'
   let sdecr = 'sn=sn+sm&sm;'
 
-  // increase/decrease ret pointer
   let rincr = 'rn=rn+1&rm;'
   let rdecr = 'rn=rn+rm&rm;'
 
@@ -264,7 +336,7 @@
 
     'a': sdecr
        + 'a=sn+sm&sm;'
-       + 'S[a]=Math.atan2(S[a]/65536,S[sn]/65536)/Math.PI*32768;',
+       + 'S[a]=Math.atan2(S[sn]/65536,S[a]/65536)/Math.PI*32768;',
 
     '<': 'a=sn+sm&sm;'
        + 'if(S[a]>0)S[a]=0;',
