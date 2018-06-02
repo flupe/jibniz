@@ -220,8 +220,10 @@
 
     run() {
       this.running = true
-      let start = performance.now()
-      let last = start
+      this.init = this.time
+
+      this.start = performance.now()
+      let last = this.start
 
       let step = () => {
         if (!this.running)
@@ -230,12 +232,13 @@
         window.requestAnimationFrame(step)
 
         let now = performance.now()
+        let elapsed = now - this.start
         let dt = (now - last) / 1000
 
         last = now
 
         this.fps = (1 / dt) | 0
-        this.time += dt * 60 & 0xffff
+        this.time = this.init + (elapsed / 1000) * 60 & 0xffff
         this.step()
       }
 
@@ -261,6 +264,8 @@
 
     reset() {
       this.time = 0
+      this.init = 0
+      this.start = performance.now()
       this.VM.reset()
     }
 
