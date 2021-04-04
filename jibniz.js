@@ -11,6 +11,13 @@
 
   const coord = v => v - 128 << 9
 
+  // In the official IBNIZ documentation, it states
+  // - the audio stack is 65536 words long
+  // - regardless of sampling rate, audio stack is one second long
+  // - default sampling rate is 61440
+  // to make it easier, we set the sampling rate to the length of the stack
+  const SAMPLE_RATE = 65536
+
   class Stack {
 
     constructor(buffer, offset, size) {
@@ -55,11 +62,12 @@
 
       this.aRStack = new Stack(buffer,  0xC8000,    0x4000)
       this.vRStack = new Stack(buffer,  0xCC000,    0x4000)
-      this.aStack  = new Stack(buffer,  0xD0000,    0x1000)
+      this.aStack  = new Stack(buffer,  0xD0000,   0x10000)
       this.vStack  = new Stack(buffer,  0xE0000,   0x20000)
 
       this.time = 0
-      this.fragment = null
+      this.mode = 'T'
+      this.fragments = null
     }
 
     reset() {
@@ -70,15 +78,26 @@
     }
 
     step(userin = 0) {
-      let f = this.fragment
+      if (!this.fragments) return
 
-      if (!f) return
-
-      for (let y = 0; y < 256; y++) {
-        for(let x = 0; x < 256; x++) {
-          // TODO(flupe): handle both T and TYX modes
-          this.vStack.push(this.time << 16, coord(y), coord(x))
-          f(this.memory, this.vStack, this.vRStack, this.time << 16, coord(x), coord(y), userin)
+      let f = this.fragments[this.mode]
+      if (this.mode == 'TYX') {
+        for (let y = 0; y < 256; y++) {
+          for(let x = 0; x < 256; x++) {
+            // TODO(flupe): handle both T and TYX modes
+            this.vStack.push(this.time << 16, coord(y), coord(x))
+            f(this.memory, this.vStack, this.vRStack, this.time << 16, coord(x), coord(y), userin)
+          }
+        }
+      }
+      else {
+        for (let y = 0; y < 256; y++) {
+          for(let x = 0; x < 256; x++) {
+            // TODO(flupe): handle both T and TYX modes
+	    let w = this.time << 16 | y << 8 | x
+            this.vStack.push(w)
+            f(this.memory, this.vStack, this.vRStack, w, userin)
+          }
         }
       }
 
@@ -194,6 +213,22 @@
       gl.useProgram(prog)
       gl.uniform1i(texLoc, 0)
 
+      // wip audio
+      let actx = this.audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE })
+      let abuf = this.audioBuf = actx.createBuffer(1, SAMPLE_RATE, SAMPLE_RATE) 
+      let asrc = this.audioSrc = actx.createBufferSource()
+
+      let buf = abuf.getChannelData(0)
+      for (var i = 0; i < SAMPLE_RATE; i++) {
+        buf[i] = Math.random() * 2 - 1
+      }
+
+      asrc.loop    = true
+      asrc.loopEnd = 1.0
+      asrc.buffer  = abuf
+      asrc.connect(actx.destination)
+      // asrc.start()
+
       this.domElement.addEventListener('mousemove', e => {
         let x = e.pageX
         let y = e.pageY
@@ -218,8 +253,7 @@
       let last = this.start
 
       let step = () => {
-        if (!this.running)
-          return
+        if (!this.running) return
 
         window.requestAnimationFrame(step)
 
@@ -237,11 +271,8 @@
       window.requestAnimationFrame(step)
     }
 
-    pause() { this.running = false }
-
-    toggle() {
-	if (this.running = !this.running) this.run()
-    }
+    pause()  { this.running = false }
+    toggle() { if (this.running = !this.running) this.run() }
 
     step() {
       super.step(this.y << 8 | this.x)
@@ -260,7 +291,7 @@
     }
 
     install(program) {
-      this.fragment = program.fragment
+      this.fragments = program.fragments
       this.memory.set(program.data.mem)
     }
 
@@ -269,8 +300,8 @@
 
   class Program {
     constructor(source) {
-      let { fragment, data } = compile(source)
-      this.fragment = fragment
+      let { fragments, data } = compile(source)
+      this.fragments = fragments
       this.data     = data
     }
   }
@@ -280,6 +311,15 @@
 
   let rincr = 'rn=rn+1&rm;'
   let rdecr = 'rn=rn+rm&rm;'
+
+  let whereami = {
+    tyx: 'S[sn]=t;'
+       + 'S[sn=sn+1&sm]=y;'
+       + 'S[sn=sn+1&sm]=x;'
+       + sincr,
+    t: 'S[sn]=t;'
+     + sincr,
+  }
 
   let codes = {
 
@@ -369,10 +409,11 @@
        + sdecr
        + 'S[sn+sm-a&sm]=S[sn];',
 
-    'w': 'S[sn]=t;'
-       + 'S[sn=sn+1&sm]=y;'
-       + 'S[sn=sn+1&sm]=x;'
-       + sincr,
+    'w': '%w%',
+    // 'w': 'S[sn]=t;'
+    //    + 'S[sn=sn+1&sm]=y;'
+    //    + 'S[sn=sn+1&sm]=x;'
+    //    + sincr,
 
     'T': 'break;',
 
@@ -572,8 +613,15 @@
 
     mem[cb] = cv << (32 - cl)
 
+    // ugly but oh well
+    let codeTYX = code.replace(/%w%/g, whereami.tyx)
+    let codeT   = code.replace(/%w%/g, whereami.t  )
+
     return {
-      fragment: new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', code),
+      fragments: {
+	T:   new Function('M', 'VS', 'RS', 't', 'U', codeT),
+        TYX: new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', codeTYX),
+      },
       data: { mem, nbits },
     }
   }

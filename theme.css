@@ -7,22 +7,22 @@ body {
   background: #000;
 }
 
-section {
+form {
   margin: 100px 0 50px;
 }
 
-section canvas {
+form canvas {
   display: block;
   margin: 0 auto;
 }
 
-section select {
+form select {
   margin: 16px auto 0;
   width: 300px;
   display: block;
 }
 
-section textarea {
+form textarea {
   display: block;
   outline: none;
   border: 2px solid rgba(256, 256, 256, .3);
@@ -35,7 +35,7 @@ section textarea {
   min-height: 100px;
 }
 
-section textarea.error {
+form textarea.error {
   border-color: rgba(256, 70, 10, .7);
 }
 

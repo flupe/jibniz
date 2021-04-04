@@ -6,7 +6,7 @@
     <title>jibniz</title>
   </head>
   <body>
-    <section>
+    <form name="editor">
       <canvas id="cvs"></canvas>
       <select id="selection">
         <option value="Ud8l2X.FF&.8-xL4X1l4i-!LpEX3@d2@*1l1@+3!d*d2@d*dv-0@+2!+4-<?L0:i;F^4r1337+">interactive julia sets</option>
@@ -39,17 +39,18 @@
 <!-- I really hope no one is watching this -->
 <pre>T=<span id="time">0000</span>                  FPS=<span id="fps">0000</span>
 --------------------------------
-<i id="reset">RESET</i>  <i id="pause">PAUSE</i>             <input id="tyx" name="mode" type="radio" checked><label for="tyx">TYX</label> / <input name = "mode" id="t" type="radio"><label for="t">T</label>
+<i id="reset">RESET</i>  <i id="pause">PAUSE</i>             <input value="TYX" id="tyx" name="mode" type="radio" checked><label for="tyx">TYX</label> / <input name="mode" id="t" value="T" type="radio"><label for="t">T</label>
 --------------------------------
 js implementation of IBNIZ
 - <a href="http://pelulamu.net/ibniz">IBNIZ presentation</a>
 - <a href="http://pelulamu.net/ibniz/ibniz.txt">IBNIZ documentation</a>
+- <a href="https://acatalepsie.fr/projects/jibniz">project page</a>
 - <a href="https://github.com/flupe/jibniz">github repository</a>
 --------------------------------
 <a href="https://twitter.com/sbbls">flupe</a> 2017-2021
 </pre>
       </div>
-    </section>
+    </form>
     <script src="jibniz.js"></script>
     <script src="main.js"></script>
   </body>

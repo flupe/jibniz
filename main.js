@@ -1,6 +1,6 @@
 const $ = document.getElementById.bind(document)
 const on = (t, e, f) => t.addEventListener(e, f, false)
-const $cvs       = $('cvs')
+const $form      = document.forms.editor
 const $input     = $('input')
 const $selection = $('selection')
 const $fps       = $('fps')
@@ -11,8 +11,8 @@ const format = (x, b = 10) => x.toString(b).toUpperCase()
 class Editor extends jibniz.Console {
   step() {
     super.step()
-    fps.innerText  = ('0000' + format(this.fps     )).substr(-4)
-    time.innerText = ('0000' + format(this.time, 16)).substr(-4)
+    $fps.innerText  = ('0000' + format(this.fps     )).substr(-4)
+    $time.innerText = ('0000' + format(this.time, 16)).substr(-4)
   }
 
   install(program) {
@@ -27,7 +27,10 @@ class Editor extends jibniz.Console {
   }
 }
 
-const IBNIZ = new Editor(cvs)
+const IBNIZ = new Editor($('cvs'))
+
+IBNIZ.mode = $form.elements.mode.value
+$form.elements.mode.forEach(i => on(i, 'change', () => IBNIZ.mode = $form.elements.mode.value))
 
 // set text to possibly selected value
 if ($input.value == '') $input.value = $selection.value
@@ -40,10 +43,7 @@ on($selection, 'change', () => {
 })
 
 // TODO: debounce
-on($input, 'input', () => {
-  IBNIZ.install(new jibniz.Program($input.value))
-})
-
+on($input, 'input', () => { IBNIZ.install(new jibniz.Program($input.value)) })
 on($('reset'), 'click', () => { IBNIZ.reset()  })
 on($('pause'), 'click', () => { IBNIZ.toggle() })
 
