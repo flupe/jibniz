@@ -8,7 +8,7 @@ body {
 }
 
 section {
-  margin: 100px 0 0;
+  margin: 100px 0 50px;
 }
 
 section canvas {
@@ -18,7 +18,7 @@ section canvas {
 
 section select {
   margin: 16px auto 0;
-  width: 256px;
+  width: 300px;
   display: block;
 }
 
@@ -27,7 +27,7 @@ section textarea {
   outline: none;
   border: 2px solid rgba(256, 256, 256, .3);
   border-radius: 2px;
-  width: 256px;
+  width: 300px;
   box-sizing: border-box;
   padding: 4px 8px;
   margin: 16px auto 0;

@@ -9,8 +9,7 @@
 
   'use strict'
 
-  let coord = v => v - 128 << 9
-
+  const coord = v => v - 128 << 9
 
   class Stack {
 
@@ -42,16 +41,10 @@
       return r
     }
 
-    reset() {
-      this.top = 0
-    }
-
-    clear() {
-      this.memory.fill(0)
-    }
+    reset() { this.top = 0 }
+    clear() { this.memory.fill(0) }
 
   }
-
 
   class VM {
 
@@ -66,7 +59,7 @@
       this.vStack  = new Stack(buffer,  0xE0000,   0x20000)
 
       this.time = 0
-      this.program = null
+      this.fragment = null
     }
 
     reset() {
@@ -77,9 +70,9 @@
     }
 
     step(userin = 0) {
-      let program = this.program
+      let f = this.fragment
 
-      let f = program.fragment
+      if (!f) return
 
       for (let y = 0; y < 256; y++) {
         for(let x = 0; x < 256; x++) {
@@ -92,27 +85,27 @@
       this.time++
     }
 
-    runOnce(program) {
-      let f = program.fragment
-      f(this.memory, this.vStack, this.vRStack)
-    }
+    // runOnce(program) {
+    //   let f = program.fragment
+    //   f(this.memory, this.vStack, this.vRStack)
+    // }
 
   }
 
 
-  class Console {
+  class Console extends VM {
 
     constructor(cvs) {
+      super()
+
       cvs = this.domElement = cvs || document.createElement('canvas')
       cvs.width = cvs.height = 256
 
       this.running = false
-      this.time = 0
-      this.VM = new VM
 
       this.videoPages = [
-        new Uint8Array(this.VM.buffer, 0xE0000 << 2, 0x40000),
-        new Uint8Array(this.VM.buffer, 0xF0000 << 2, 0x40000),
+        new Uint8Array(this.buffer, 0xE0000 << 2, 0x40000),
+        new Uint8Array(this.buffer, 0xF0000 << 2, 0x40000),
       ]
 
       this.x = 128
@@ -201,7 +194,6 @@
       gl.useProgram(prog)
       gl.uniform1i(texLoc, 0)
 
-
       this.domElement.addEventListener('mousemove', e => {
         let x = e.pageX
         let y = e.pageY
@@ -245,18 +237,16 @@
       window.requestAnimationFrame(step)
     }
 
-    pause() {
-      this.running = false
+    pause() { this.running = false }
+
+    toggle() {
+	if (this.running = !this.running) this.run()
     }
 
     step() {
-      this.VM.time = this.time
-      this.VM.step(this.y << 8 | this.x)
-
-      let video = this.videoPages[(this.VM.vStack.top >> 16) ^ 1]
-
-      let gl = this.gl
-
+      super.step(this.y << 8 | this.x)
+      let video = this.videoPages[(this.vStack.top >> 16) ^ 1]
+      let gl    = this.gl
       gl.bindTexture(gl.TEXTURE_2D, this.texture)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, video)
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
@@ -266,18 +256,23 @@
       this.time = 0
       this.init = 0
       this.start = performance.now()
-      this.VM.reset()
+      super.reset()
+    }
+
+    install(program) {
+      this.fragment = program.fragment
+      this.memory.set(program.data.mem)
     }
 
   }
 
 
   class Program {
-
     constructor(source) {
-      this.fragment = compile(source)
+      let { fragment, data } = compile(source)
+      this.fragment = fragment
+      this.data     = data
     }
-
   }
 
   let sincr = 'sn=sn+1&sm;'
@@ -420,10 +415,8 @@
     'U': 'S[sn]=U;' + sincr,
   }
 
-  let isHexaDecimal = c => {
-    return !isNaN(c) || c == 'A' || c == 'B' || c == 'C'
-                     || c == 'D' || c == 'E' || c == 'F'
-  }
+  let hexchars = "0123456789ABCDEF".split('')
+  let isHexaDecimal = c => hexchars.includes(c)
 
   let isBlank = c => c == ' ' || c == ',' || c == '\n'
 
@@ -432,6 +425,19 @@
     let len  = src.length
     let body = []
     let c
+
+    let dataModes = {
+      b: { len: 1, mask:  1 },
+      q: { len: 2, mask:  3 },
+      o: { len: 3, mask:  7 },
+      h: { len: 4, mask: 15 },
+    }
+
+    let data = []
+    let currentValues = []
+    let currentMode   = dataModes.h
+
+    let parsingData = false
 
     while(pos < len) {
       c = src[pos++]
@@ -474,9 +480,22 @@
         body.push(imm)
       }
 
-      // TODO(flupe): parse $ data
+      // parsing data segment
       else if (c == '$') {
-        break
+        while (pos < len) {
+          c = src[pos++]
+	  if (dataModes[c]) {
+	    if (currentValues.length) {
+                data.push({ mode: currentMode, values: currentValues })
+	        currentValues = []
+	    }
+	    currentMode   = dataModes[c]
+	  }
+	  else if (isHexaDecimal(c)) {
+            currentValues.push(parseInt(c, 16) & currentMode.mask)
+	  }
+	}
+	break
       }
 
       else {
@@ -485,11 +504,15 @@
       }
     }
 
-    return body
+    
+    data.push({ mode: currentMode, values: currentValues })
+    return { body, data }
   }
 
   function parse(src) {
-    let tokens = tokenize(src)
+    let res    = tokenize(src)
+    let tokens = res.body
+
     let len = tokens.length
 
     // find skip points
@@ -524,12 +547,35 @@
 
     let code = codegen(tokens)
 
-    return code
+    return { code, data: res.data }
   }
 
   function compile(src) {
-    let code = parse(src)
-    return new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', code)
+    let { code, data } = parse(src)
+	
+    let nbits  = data.reduce((n , {values, mode}) => n + values.length * mode.len, 0)
+    let nbytes = (nbits + 7) >> 3
+
+    // hack because of endianness
+    let mem = new Uint32Array(new ArrayBuffer(nbytes))
+    let cb = 0, cv = 0, cl = 0
+
+    data.forEach(({values, mode}) => {
+      values.forEach(v => {
+        cv = cv << mode.len | v
+	cl += mode.len
+	if (cl > 32) {
+          mem[cb++] = cv >> (cl -= 32)
+	}
+      })
+    })
+
+    mem[cb] = cv << (32 - cl)
+
+    return {
+      fragment: new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', code),
+      data: { mem, nbits },
+    }
   }
 
   function codegen(tokens) {
