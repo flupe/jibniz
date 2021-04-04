@@ -28,24 +28,27 @@ class Editor extends jibniz.Console {
 }
 
 const IBNIZ = new Editor($('cvs'))
+IBNIZ.init().then(() => {
 
-IBNIZ.mode = $form.elements.mode.value
-$form.elements.mode.forEach(i => on(i, 'change', () => IBNIZ.mode = $form.elements.mode.value))
-
-// set text to possibly selected value
-if ($input.value == '') $input.value = $selection.value
-
-on($selection, 'change', () => {
-  $input.value = $selection.value
-  IBNIZ.reset()
+  IBNIZ.mode = $form.elements.mode.value
+  $form.elements.mode.forEach(i => on(i, 'change', () => IBNIZ.mode = $form.elements.mode.value))
+  
+  // set text to possibly selected value
+  if ($input.value == '') $input.value = $selection.value
+  
+  on($selection, 'change', () => {
+    $input.value = $selection.value
+    IBNIZ.reset()
+    IBNIZ.install(new jibniz.Program($input.value))
+    if (!IBNIZ.running) IBNIZ.run()
+  })
+  
+  // TODO: debounce
+  on($input, 'input', () => { IBNIZ.install(new jibniz.Program($input.value)) })
+  on($('reset'), 'click', () => { IBNIZ.reset()  })
+  on($('pause'), 'click', () => { IBNIZ.toggle() })
+  
   IBNIZ.install(new jibniz.Program($input.value))
-  if (!IBNIZ.running) IBNIZ.run()
+  IBNIZ.run()
+
 })
-
-// TODO: debounce
-on($input, 'input', () => { IBNIZ.install(new jibniz.Program($input.value)) })
-on($('reset'), 'click', () => { IBNIZ.reset()  })
-on($('pause'), 'click', () => { IBNIZ.toggle() })
-
-IBNIZ.install(new jibniz.Program($input.value))
-IBNIZ.run()

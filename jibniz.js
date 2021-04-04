@@ -74,6 +74,8 @@
       this.memory.fill(0)
       this.vStack.reset()
       this.vRStack.reset()
+      this.aStack.reset()
+      this.aRStack.reset()
       this.time = 0
     }
 
@@ -101,13 +103,25 @@
         }
       }
 
+      // HACKY
+      // update audio every second
+      // 60 frames per second
+      // 0x1000 samples per second
+      // 0x1000 / 60 samples per frame
+      if (this.time % 60 == 0) {
+	let t = this.time
+        let f = this.fragments.T
+        for (let k = 0; k < 0x10000; k++) {
+	  let v = (k * 60) & 0xffff
+          let t = this.time + (k * 60 / 0x10000) | 0
+	  let w = (t << 16) | v
+          this.aStack.push(w)
+          f(this.memory, this.aStack, this.aRStack, w, userin)
+        }
+      }
+
       this.time++
     }
-
-    // runOnce(program) {
-    //   let f = program.fragment
-    //   f(this.memory, this.vStack, this.vRStack)
-    // }
 
   }
 
@@ -129,7 +143,9 @@
 
       this.x = 128
       this.y = 128
+    }
 
+    async init() {
       let gl = this.gl = cvs.getContext('webgl')
 
       function loadShader(src, type) {
@@ -188,7 +204,7 @@
       gl.linkProgram(prog)
 
       let posAttribLoc = gl.getAttribLocation(prog, 'pos')
-      let positions = gl.createBuffer()
+      let positions    = gl.createBuffer()
 
       gl.bindBuffer(gl.ARRAY_BUFFER, positions);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -215,19 +231,11 @@
 
       // wip audio
       let actx = this.audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE })
-      let abuf = this.audioBuf = actx.createBuffer(1, SAMPLE_RATE, SAMPLE_RATE) 
-      let asrc = this.audioSrc = actx.createBufferSource()
-
-      let buf = abuf.getChannelData(0)
-      for (var i = 0; i < SAMPLE_RATE; i++) {
-        buf[i] = Math.random() * 2 - 1
-      }
-
-      asrc.loop    = true
-      asrc.loopEnd = 1.0
-      asrc.buffer  = abuf
-      asrc.connect(actx.destination)
-      // asrc.start()
+      await actx.audioWorklet.addModule('processor.js')
+      this.audioGain = actx.createGain()
+      this.audioProcessor = new AudioWorkletNode(actx, 'processor')
+      this.audioProcessor.connect(this.audioGain)
+      this.audioGain.connect(actx.destination)
 
       this.domElement.addEventListener('mousemove', e => {
         let x = e.pageX
@@ -248,6 +256,7 @@
     run() {
       this.running = true
       this.init = this.time
+      this.audioGain.gain.setValueAtTime(1, this.audioCtx.currentTime)
 
       this.start = performance.now()
       let last = this.start
@@ -271,8 +280,15 @@
       window.requestAnimationFrame(step)
     }
 
-    pause()  { this.running = false }
-    toggle() { if (this.running = !this.running) this.run() }
+    pause()  {
+      this.running = false
+      this.audioGain.gain.setValueAtTime(0, this.audioCtx.currentTime)
+    }
+
+    toggle() {
+      if (this.running) this.pause()
+      else this.run()
+    }
 
     step() {
       super.step(this.y << 8 | this.x)
@@ -281,6 +297,11 @@
       gl.bindTexture(gl.TEXTURE_2D, this.texture)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, video)
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+      // HACKY
+      if (this.time % 60 == 1) {
+	this.audioProcessor.port.postMessage(this.aStack.memory)
+      }
     }
 
     reset() {
@@ -461,24 +482,22 @@
 
   let isBlank = c => c == ' ' || c == ',' || c == '\n'
 
+  let dataModes = {
+    b: { len: 1, mask:  1 },
+    q: { len: 2, mask:  3 },
+    o: { len: 3, mask:  7 },
+    h: { len: 4, mask: 15 },
+  }
+
   function tokenize(src) {
     let pos  = 0
     let len  = src.length
     let body = []
     let c
 
-    let dataModes = {
-      b: { len: 1, mask:  1 },
-      q: { len: 2, mask:  3 },
-      o: { len: 3, mask:  7 },
-      h: { len: 4, mask: 15 },
-    }
-
     let data = []
     let currentValues = []
-    let currentMode   = dataModes.h
-
-    let parsingData = false
+    let currentMode = dataModes.h
 
     while(pos < len) {
       c = src[pos++]
@@ -539,13 +558,9 @@
 	break
       }
 
-      else {
-        // TODO(flupe): eventually warn if there is an unknown token?
-        body.push({ op: c, pos: pos - 1 })
-      }
+      else body.push({ op: c, pos: pos - 1 })
     }
 
-    
     data.push({ mode: currentMode, values: currentValues })
     return { body, data }
   }
