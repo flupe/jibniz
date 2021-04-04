@@ -13,7 +13,7 @@ yarn test
 ## TODO
 
 I've tried again and again to produce WASM from IBNIZ programs, sadly the `J`
-instruction is too powerful. In the specification, it can jump to any instruction at runtime, depending on the address found on the stack, whereas ASM needs jumps to be well-structure.
+instruction is too powerful. In the specification, it can jump to any instruction at runtime, depending on the address found on the stack, whereas WASM jumps have to be well-behaved.
 
 - Fix endianness hacks.
 - Basic support for audio.

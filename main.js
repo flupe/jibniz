@@ -15,8 +15,14 @@ class Editor extends jibniz.Console {
     time.innerText = ('0000' + format(this.time, 16)).substr(-4)
   }
 
+  install(program) {
+    this._program = program
+    super.install(program)
+  }
+
   reset() {
     super.reset()
+    if (this._program) super.install(this._program)
     if (!this.running) super.step()
   }
 }
