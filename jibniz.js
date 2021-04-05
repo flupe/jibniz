@@ -255,7 +255,7 @@
 
     run() {
       this.running = true
-      this.init = this.time
+      this.initTime = this.time
       this.audioGain.gain.setValueAtTime(1, this.audioCtx.currentTime)
 
       this.start = performance.now()
@@ -273,7 +273,7 @@
         last = now
 
         this.fps = (1 / dt) | 0
-        this.time = this.init + (elapsed / 1000) * 60 & 0xffff
+        this.time = this.initTime + (elapsed / 1000) * 60 & 0xffff
         this.step()
       }
 
@@ -306,7 +306,7 @@
 
     reset() {
       this.time = 0
-      this.init = 0
+      this.initTime = 0
       this.start = performance.now()
       super.reset()
     }
