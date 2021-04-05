@@ -82,7 +82,7 @@
     step(userin = 0) {
       if (!this.fragments) return
 
-      let f = this.fragments[this.mode]
+      let f = this.fragments.video[this.mode]
       if (this.mode == 'TYX') {
         for (let y = 0; y < 256; y++) {
           for(let x = 0; x < 256; x++) {
@@ -110,7 +110,7 @@
       // 0x1000 / 60 samples per frame
       if (this.time % 60 == 0) {
 	let t = this.time
-        let f = this.fragments.T
+        let f = this.fragments.audio
         for (let k = 0; k < 0x10000; k++) {
 	  let v = (k * 60) & 0xffff
           let t = this.time + (k * 60 / 0x10000) | 0
@@ -430,12 +430,6 @@
        + sdecr
        + 'S[sn+sm-a&sm]=S[sn];',
 
-    'w': '%w%',
-    // 'w': 'S[sn]=t;'
-    //    + 'S[sn=sn+1&sm]=y;'
-    //    + 'S[sn=sn+1&sm]=x;'
-    //    + sincr,
-
     'T': 'break;',
 
     '@': 'a=sn+sm&sm;'
@@ -489,10 +483,12 @@
     h: { len: 4, mask: 15 },
   }
 
-  function tokenize(src) {
+  function parse(src) {
     let pos  = 0
     let len  = src.length
     let body = []
+    let video = null
+    let audio = null
     let c
 
     let data = []
@@ -558,17 +554,29 @@
 	break
       }
 
+      else if (c == 'M') {
+        video = body
+	body = []
+      }
+
       else body.push({ op: c, pos: pos - 1 })
     }
 
+    if (video) {
+      audio = body
+      findSkips(video)
+      findSkips(audio)
+    }
+    else {
+      video = audio = body
+      findSkips(body)
+    }
+
     data.push({ mode: currentMode, values: currentValues })
-    return { body, data }
+    return { video, audio, data }
   }
 
-  function parse(src) {
-    let res    = tokenize(src)
-    let tokens = res.body
-
+  function findSkips(tokens) {
     let len = tokens.length
 
     // find skip points
@@ -600,14 +608,10 @@
         }
       }
     }
-
-    let code = codegen(tokens)
-
-    return { code, data: res.data }
   }
 
   function compile(src) {
-    let { code, data } = parse(src)
+    let { video, audio, data } = parse(src)
 	
     let nbits  = data.reduce((n , {values, mode}) => n + values.length * mode.len, 0)
     let nbytes = (nbits + 7) >> 3
@@ -628,20 +632,23 @@
 
     mem[cb] = cv << (32 - cl)
 
-    // ugly but oh well
-    let codeTYX = code.replace(/%w%/g, whereami.tyx)
-    let codeT   = code.replace(/%w%/g, whereami.t  )
+    let videoTYX = codegen(video, whereami.tyx)
+    let videoT   = codegen(video, whereami.t  )
+    let audioT   = codegen(audio, whereami.t  )
 
     return {
       fragments: {
-	T:   new Function('M', 'VS', 'RS', 't', 'U', codeT),
-        TYX: new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', codeTYX),
+        video: {
+	  T:   new Function('M', 'VS', 'RS', 't', 'U', videoT),
+          TYX: new Function('M', 'VS', 'RS', 't', 'x', 'y', 'U', videoTYX),
+	},
+	audio: new Function('M', 'VS', 'RS', 't', 'U', audioT),
       },
       data: { mem, nbits },
     }
   }
 
-  function codegen(tokens) {
+  function codegen(tokens, whereami) {
     let body = `
       let l=true,
           i=0,
@@ -663,9 +670,8 @@
       if (typeof tok == 'number')
         sub += 'S[sn]=' + tok + ';' + sincr
 
-      else if (codes[tok.op])
-        sub += codes[tok.op]
-
+      else if (codes[tok.op]) sub += codes[tok.op]
+      else if (tok.op == 'w') sub += whereami
       else if (tok.op == '?') {
         if (!tok.skip) 
           sub += sdecr
@@ -676,10 +682,8 @@
       }
 
       else if (tok.op == ':') {
-        if (!tok.skip) 
-          sub = 'break;' + sub
-        else
-          sub = `i=${tok.skip};continue;` + sub
+        if (!tok.skip) sub = 'break;' + sub
+        else           sub = `i=${tok.skip};continue;` + sub
       }
 
       else if (tok.op == '{') {
